@@ -6,13 +6,31 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		25D4C1BA2F72C1560056ADB4 /* claude.md in Resources */ = {isa = PBXBuildFile; fileRef = 25D4C1B92F72C14D0056ADB4 /* claude.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		25D4C18B2F72B11D0056ADB4 /* ScreenshotTool.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScreenshotTool.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		25D4C1B92F72C14D0056ADB4 /* claude.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = claude.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		25D4C1AE2F72B3480056ADB4 /* Exceptions for "ScreenshotTool" folder in "ScreenshotTool" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 25D4C18A2F72B11D0056ADB4 /* ScreenshotTool */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		25D4C18D2F72B11D0056ADB4 /* ScreenshotTool */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				25D4C1AE2F72B3480056ADB4 /* Exceptions for "ScreenshotTool" folder in "ScreenshotTool" target */,
+			);
 			path = ScreenshotTool;
 			sourceTree = "<group>";
 		};
@@ -32,6 +50,7 @@
 		25D4C1822F72B11D0056ADB4 = {
 			isa = PBXGroup;
 			children = (
+				25D4C1B92F72C14D0056ADB4 /* claude.md */,
 				25D4C18D2F72B11D0056ADB4 /* ScreenshotTool */,
 				25D4C18C2F72B11D0056ADB4 /* Products */,
 			);
@@ -109,6 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				25D4C1BA2F72C1560056ADB4 /* claude.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -258,6 +278,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ScreenshotTool/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -291,6 +312,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ScreenshotTool/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
