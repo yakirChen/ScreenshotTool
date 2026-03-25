@@ -50,6 +50,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowItem.keyEquivalentModifierMask = [.command, .shift]
         windowItem.target = self
 
+        let scrollItem = menu.addItem(
+            withTitle: "滚动截图", action: #selector(scrollCapture), keyEquivalent: "8")
+        scrollItem.keyEquivalentModifierMask = [.command, .shift]
+        scrollItem.target = self
+
         menu.addItem(NSMenuItem.separator())
 
         // 工具
@@ -137,6 +142,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func captureWindow() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             SelectionCaptureManager.shared.startCapture(detectWindows: true)
+        }
+    }
+
+    @objc func scrollCapture() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            ScrollCaptureManager.shared.start()
         }
     }
 

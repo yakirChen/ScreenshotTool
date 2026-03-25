@@ -51,11 +51,11 @@ class EditorToolbarView: NSView {
     private let allTools: [AnnotationTool] = [
         .select, .arrow, .text, .number,
         .rectangle, .ellipse, .line,
-        .pen, .highlight, .blur, .measure
+        .pen, .highlight, .blur, .measure, .ocr
     ]
 
     private let coreTools: [AnnotationTool] = [
-        .select, .arrow, .rectangle, .text
+        .select, .arrow, .rectangle, .text, .ocr
     ]
 
     override init(frame: NSRect) {
@@ -94,7 +94,9 @@ class EditorToolbarView: NSView {
     // MARK: - UI
 
     private func setupUI() {
-        // 左+中 容器
+        // ✅ 不设置背景色，NSToolbar 自带背景
+        // ✅ 不需要分隔线，NSToolbar 自带
+
         mainContainer = NSStackView()
         mainContainer.orientation = .horizontal
         mainContainer.spacing = 2
@@ -102,7 +104,6 @@ class EditorToolbarView: NSView {
         mainContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(mainContainer)
 
-        // 右侧容器
         rightContainer = NSStackView()
         rightContainer.orientation = .horizontal
         rightContainer.spacing = 6
@@ -110,7 +111,6 @@ class EditorToolbarView: NSView {
         rightContainer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rightContainer)
 
-        // 展开按钮
         expandButton = NSButton(frame: .zero)
         expandButton.bezelStyle = .recessed
         expandButton.isBordered = false
@@ -125,20 +125,19 @@ class EditorToolbarView: NSView {
         addSubview(expandButton)
 
         NSLayoutConstraint.activate([
-            // ✅ 垂直居中
-            mainContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 78),
+            // ✅ 左侧从 8 开始（红绿灯在 NSToolbar 外面，不需要留空间）
+            mainContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             mainContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
             mainContainer.heightAnchor.constraint(lessThanOrEqualTo: heightAnchor, constant: -4),
 
-            rightContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            rightContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             rightContainer.centerYAnchor.constraint(equalTo: centerYAnchor),
             rightContainer.heightAnchor.constraint(lessThanOrEqualTo: heightAnchor, constant: -4),
 
-            // 防止重叠
             mainContainer.trailingAnchor.constraint(
                 lessThanOrEqualTo: rightContainer.leadingAnchor, constant: -12),
 
-            expandButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            expandButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             expandButton.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
 

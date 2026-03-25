@@ -19,6 +19,7 @@ enum AnnotationTool: String, CaseIterable {
     case number = "编号"
     case pen = "画笔"
     case measure = "测量"
+    case ocr = "文字识别"
 
     var icon: String {
         switch self {
@@ -33,6 +34,7 @@ enum AnnotationTool: String, CaseIterable {
         case .number: return "1.circle.fill"
         case .pen: return "pencil.tip"
         case .measure: return "ruler"
+        case .ocr: return "text.viewfinder"
         }
     }
 }

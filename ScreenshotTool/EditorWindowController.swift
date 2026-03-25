@@ -29,13 +29,12 @@ class EditorWindowController: NSWindowController {
 
     convenience init(image: NSImage) {
         let maxSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
-        let toolbarHeight: CGFloat = 38
 
         let scale: CGFloat = min(
             1.0,
             min(
                 maxSize.width * 0.8 / image.size.width,
-                (maxSize.height * 0.8 - toolbarHeight) / image.size.height)
+                maxSize.height * 0.8 / image.size.height)
         )
         let imageDisplaySize = CGSize(
             width: image.size.width * scale,
@@ -48,7 +47,7 @@ class EditorWindowController: NSWindowController {
 
         let window = NSWindow(
             contentRect: CGRect(origin: .zero, size: windowSize),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -58,12 +57,10 @@ class EditorWindowController: NSWindowController {
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = CGSize(width: 200, height: 80)
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = false
 
         self.init(window: window)
 
-        setupViews(image: image, windowSize: windowSize, toolbarHeight: toolbarHeight)
+        setupViews(image: image, windowSize: windowSize)
         setupKeyboardMonitor()
 
         NotificationCenter.default.addObserver(
@@ -81,30 +78,23 @@ class EditorWindowController: NSWindowController {
         NotificationCenter.default.removeObserver(self)
     }
 
-    private func setupViews(image: NSImage, windowSize: CGSize, toolbarHeight: CGFloat) {
-        guard let contentView = window?.contentView else { return }
-        contentView.wantsLayer = true
+    private func setupViews(image: NSImage, windowSize: CGSize) {
+        guard let window = self.window,
+              let contentView = window.contentView
+        else { return }
 
-        // ✅ 工具栏嵌入标题栏，并垂直居中
-        if let titlebarView = window?.standardWindowButton(.closeButton)?.superview?.superview {
-            toolbarView = EditorToolbarView(frame: .zero)
-            toolbarView.delegate = self
-            toolbarView.currentColor = PreferencesManager.shared.defaultAnnotationColor
-            toolbarView.imageSize = image.size
-            toolbarView.zoomLevel = 1.0
+        // ✅ 用 NSToolbar 把自定义 view 嵌入标题栏
+        let toolbar = NSToolbar(identifier: "EditorToolbar")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        toolbar.showsBaselineSeparator = true
+        window.toolbar = toolbar
 
-            titlebarView.addSubview(toolbarView)
+        // ✅ 让工具栏和标题栏融为一体
+        window.titlebarAppearsTransparent = false
 
-            toolbarView.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                toolbarView.leadingAnchor.constraint(equalTo: titlebarView.leadingAnchor),
-                toolbarView.trailingAnchor.constraint(equalTo: titlebarView.trailingAnchor),
-                toolbarView.topAnchor.constraint(equalTo: titlebarView.topAnchor),
-                toolbarView.bottomAnchor.constraint(equalTo: titlebarView.bottomAnchor)
-            ])
-        }
-
-        // ✅ 编辑器用自定义可拖拽画布，不用 NSScrollView
+        // ✅ 画布占满 contentView
         let canvasView = CanvasView(frame: contentView.bounds)
         canvasView.autoresizingMask = [.width, .height]
         contentView.addSubview(canvasView)
@@ -117,17 +107,13 @@ class EditorWindowController: NSWindowController {
         canvasView.editorView = editorView
         canvasView.addSubview(editorView)
 
-        self.scrollView = nil  // 不再使用 scrollView
-
         DispatchQueue.main.async {
             canvasView.centerEditor()
         }
     }
 
     @objc private func windowDidResize(_ notification: Notification) {
-        toolbarView?.updateLayout()
-
-        // 重新居中图片
+        // 工具栏由 NSToolbar 管理，自动适应
         if let canvasView = window?.contentView?.subviews.first(where: { $0 is CanvasView })
             as? CanvasView {
             canvasView.centerEditor()
@@ -297,6 +283,43 @@ class EditorWindowController: NSWindowController {
                     label.removeFromSuperview()
                 })
         }
+    }
+}
+
+// MARK: - NSToolbarDelegate
+
+extension EditorWindowController: NSToolbarDelegate {
+
+    func toolbar(
+        _ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+
+        if itemIdentifier == .init("EditorTools") {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+
+            toolbarView = EditorToolbarView(frame: NSRect(x: 0, y: 0, width: 800, height: 38))
+            toolbarView.delegate = self as EditorToolbarDelegate  // ✅ 显式转换
+            toolbarView.currentColor = PreferencesManager.shared.defaultAnnotationColor
+            toolbarView.imageSize = editorView?.image?.size ?? .zero
+            toolbarView.zoomLevel = 1.0
+
+            item.view = toolbarView
+            item.minSize = NSSize(width: 200, height: 38)
+            item.maxSize = NSSize(width: 2000, height: 38)
+
+            return item
+        }
+
+        return nil
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        return [.init("EditorTools")]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        return [.init("EditorTools")]
     }
 }
 

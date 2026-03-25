@@ -116,6 +116,8 @@ class Annotation {
             drawText()
         case .measure:
             drawMeasure(in: context)
+        case .ocr:
+            break
         case .select:
             break
         }

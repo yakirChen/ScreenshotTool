@@ -31,6 +31,10 @@ class EditorView: NSView {
     private var textField: NSTextField?
     private var editingAnnotation: Annotation?
 
+    private var ocrSelectionRect: CGRect = .zero
+    private var isOCRSelecting = false
+    private var ocrStartPoint: CGPoint = .zero
+
     // MARK: - 设置
 
     override var acceptsFirstResponder: Bool { true }
@@ -65,10 +69,178 @@ class EditorView: NSView {
         }
         currentAnnotation?.draw(in: context, imageSize: bounds.size)
 
+        // OCR 选区
+        if isOCRSelecting && ocrSelectionRect.width > 0 && ocrSelectionRect.height > 0 {
+            drawOCRSelection(context: context)
+        }
+
         // 细边框
         context.setStrokeColor(NSColor.separatorColor.cgColor)
         context.setLineWidth(0.5)
         context.stroke(bounds)
+    }
+
+    // MARK: 绘制 OCR 选区
+    private func drawOCRSelection(context: CGContext) {
+        // 半透明蓝色填充
+        context.setFillColor(NSColor.systemBlue.withAlphaComponent(0.08).cgColor)
+        context.fill(ocrSelectionRect)
+
+        // 蓝色虚线边框
+        context.setStrokeColor(NSColor.systemBlue.withAlphaComponent(0.8).cgColor)
+        context.setLineWidth(1.5)
+        context.setLineDash(phase: 0, lengths: [6, 3])
+        context.stroke(ocrSelectionRect)
+        context.setLineDash(phase: 0, lengths: [])
+
+        // 提示文字
+        let text = "松开识别文字"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.white,
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium)
+        ]
+        let textSize = (text as NSString).size(withAttributes: attrs)
+        let padding: CGFloat = 6
+        let bgWidth = textSize.width + padding * 2
+        let bgHeight = textSize.height + padding
+
+        // ✅ 放在选框上方，如果上方空间不够就放下方
+        var bgOrigin: CGPoint
+        if ocrSelectionRect.maxY + bgHeight + 6 < bounds.height {
+            // 上方（NSView 坐标系 y 向上）
+            bgOrigin = CGPoint(
+                x: ocrSelectionRect.midX - bgWidth / 2,
+                y: ocrSelectionRect.maxY + 6
+            )
+        } else if ocrSelectionRect.minY - bgHeight - 6 > 0 {
+            // 下方
+            bgOrigin = CGPoint(
+                x: ocrSelectionRect.midX - bgWidth / 2,
+                y: ocrSelectionRect.minY - bgHeight - 6
+            )
+        } else {
+            // 都放不下，放选框右侧外面
+            bgOrigin = CGPoint(
+                x: ocrSelectionRect.maxX + 6,
+                y: ocrSelectionRect.midY - bgHeight / 2
+            )
+        }
+
+        // 限制在视图范围内
+        bgOrigin.x = max(4, min(bgOrigin.x, bounds.width - bgWidth - 4))
+        bgOrigin.y = max(4, min(bgOrigin.y, bounds.height - bgHeight - 4))
+
+        let bgRect = CGRect(origin: bgOrigin, size: CGSize(width: bgWidth, height: bgHeight))
+
+        context.setFillColor(NSColor.systemBlue.withAlphaComponent(0.85).cgColor)
+        let bgPath = CGPath(roundedRect: bgRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+        context.addPath(bgPath)
+        context.fillPath()
+
+        (text as NSString).draw(
+            at: CGPoint(x: bgRect.origin.x + padding, y: bgRect.origin.y + padding / 2),
+            withAttributes: attrs
+        )
+    }
+
+    // MARK: 对选区进行 OCR
+    private func performOCROnSelection() {
+        guard let image = image else { return }
+
+        // 从原图裁剪选区
+        let scaleX = image.size.width / bounds.width
+        let scaleY = image.size.height / bounds.height
+
+        let cropRect = CGRect(
+            x: ocrSelectionRect.origin.x * scaleX,
+            y: ocrSelectionRect.origin.y * scaleY,
+            width: ocrSelectionRect.width * scaleX,
+            height: ocrSelectionRect.height * scaleY
+        )
+
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return
+        }
+
+        // NSImage 坐标 y 轴翻转
+        let flippedY = CGFloat(cgImage.height) - cropRect.origin.y - cropRect.height
+        let flippedRect = CGRect(
+            x: cropRect.origin.x,
+            y: flippedY,
+            width: cropRect.width,
+            height: cropRect.height
+        )
+
+        guard let croppedCG = cgImage.cropping(to: flippedRect) else { return }
+        let croppedImage = NSImage(cgImage: croppedCG, size: cropRect.size)
+
+        OCRManager.shared.recognizeText(from: croppedImage) { [weak self] text in
+            if text.isEmpty {
+                self?.showOCRToast("未识别到文字")
+                return
+            }
+            self?.showOCRPopover(text: text, at: self?.ocrSelectionRect ?? .zero)
+        }
+    }
+
+    // MARK: OCR 结果弹出
+    private func showOCRPopover(text: String, at rect: CGRect) {
+        // 复制到剪贴板
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+
+        // 创建弹出视图
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 320, height: 200)
+
+        let vc = NSViewController()
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 200))
+
+        // 文字视图
+        let scrollView = NSScrollView(frame: NSRect(x: 8, y: 36, width: 304, height: 156))
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+
+        let textView = NSTextView(frame: scrollView.bounds)
+        textView.string = text
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.font = .systemFont(ofSize: 13)
+        textView.autoresizingMask = [.width, .height]
+        textView.isVerticallyResizable = true
+        textView.textContainer?.widthTracksTextView = true
+        scrollView.documentView = textView
+        container.addSubview(scrollView)
+
+        // 底部提示
+        let hint = NSTextField(labelWithString: "✓ 已复制到剪贴板")
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .systemGreen
+        hint.frame = NSRect(x: 8, y: 8, width: 200, height: 20)
+        container.addSubview(hint)
+
+        // 关闭按钮
+        let closeBtn = NSButton(title: "关闭", target: popover, action: #selector(NSPopover.close))
+        closeBtn.bezelStyle = .rounded
+        closeBtn.frame = NSRect(x: 250, y: 6, width: 60, height: 24)
+        container.addSubview(closeBtn)
+
+        vc.view = container
+        popover.contentViewController = vc
+
+        // 在选区位置弹出
+        let showRect = NSRect(x: rect.midX - 5, y: rect.midY - 5, width: 10, height: 10)
+        popover.show(relativeTo: showRect, of: self, preferredEdge: .maxY)
+    }
+
+    private func showOCRToast(_ message: String) {
+        // 简单提示
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "好")
+        alert.runModal()
     }
 
     // MARK: - 鼠标事件
@@ -85,6 +257,10 @@ class EditorView: NSView {
             handleTextMouseDown(point: point)
         case .number:
             handleNumberMouseDown(point: point)
+        case .ocr:
+            ocrStartPoint = point
+            ocrSelectionRect = CGRect(origin: point, size: .zero)
+            isOCRSelecting = true
         default:
             saveUndoState()
             let annotation = Annotation(
@@ -108,6 +284,13 @@ class EditorView: NSView {
             handleSelectMouseDragged(point: point)
         case .pen:
             currentAnnotation?.penPoints.append(point)
+        case .ocr:
+            ocrSelectionRect = CGRect(
+                x: min(ocrStartPoint.x, point.x),
+                y: min(ocrStartPoint.y, point.y),
+                width: abs(point.x - ocrStartPoint.x),
+                height: abs(point.y - ocrStartPoint.y)
+            )
         default:
             currentAnnotation?.endPoint = point
         }
@@ -119,6 +302,13 @@ class EditorView: NSView {
         switch currentTool {
         case .select:
             break
+        case .ocr:
+            if isOCRSelecting && ocrSelectionRect.width > 5 && ocrSelectionRect.height > 5 {
+                performOCROnSelection()
+            }
+            isOCRSelecting = false
+            ocrSelectionRect = .zero
+            needsDisplay = true
         default:
             if let annotation = currentAnnotation {
                 let dx = abs(annotation.endPoint.x - annotation.startPoint.x)
