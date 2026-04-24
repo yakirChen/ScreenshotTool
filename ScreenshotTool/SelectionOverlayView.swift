@@ -6,7 +6,6 @@
 //
 
 import Cocoa
-import UniformTypeIdentifiers
 
 class SelectionOverlayView: NSView {
 
@@ -517,15 +516,12 @@ class SelectionOverlayView: NSView {
     }
 
     private func handleAnnotationKeyDown(_ event: NSEvent) {
-        let cmd = event.modifierFlags.contains(.command)
         switch event.keyCode {
         case 53:
             cancelAnnotation()
         case 36, 76:
             exportCopy()
-        case 1 where cmd:
-            exportSave()
-        case 8 where cmd:
+        case 8 where event.modifierFlags.contains(.command):
             exportCopy()
         default:
             annotationEditorView?.keyDown(with: event)
@@ -540,48 +536,6 @@ class SelectionOverlayView: NSView {
     @objc private func exportPin() {
         guard let image = annotationEditorView?.exportImage() else { return }
         onComplete?(annotationRect, image, .pin)
-    }
-
-    @objc private func exportSave() {
-        guard let image = annotationEditorView?.exportImage(),
-              let window
-        else { return }
-
-        let format = PreferencesManager.shared.saveFormat
-        let ext = format == "jpeg" ? "jpg" : format
-        let savePanel = NSSavePanel()
-        switch format {
-        case "jpeg": savePanel.allowedContentTypes = [.jpeg]
-        case "tiff": savePanel.allowedContentTypes = [.tiff]
-        default: savePanel.allowedContentTypes = [.png]
-        }
-        savePanel.nameFieldStringValue = "Screenshot_\(dateString()).\(ext)"
-
-        savePanel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let url = savePanel.url else { return }
-            self?.saveImageToFile(image: image, url: url, format: format)
-            self?.onComplete?(self?.annotationRect ?? .zero, image, .save)
-        }
-    }
-
-    private func saveImageToFile(image: NSImage, url: URL, format: String) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData)
-        else { return }
-        let fileType: NSBitmapImageRep.FileType
-        switch format {
-        case "jpeg": fileType = .jpeg
-        case "tiff": fileType = .tiff
-        default: fileType = .png
-        }
-        guard let data = bitmapRep.representation(using: fileType, properties: [:]) else { return }
-        try? data.write(to: url)
-    }
-
-    private func dateString() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        return f.string(from: Date())
     }
 
     @objc private func cancelAnnotation() {
@@ -650,10 +604,6 @@ extension SelectionOverlayView: InlineEditorToolbarDelegate {
 
     func inlineToolbarDidCopy(_ toolbar: InlineEditorToolbar) {
         exportCopy()
-    }
-
-    func inlineToolbarDidSave(_ toolbar: InlineEditorToolbar) {
-        exportSave()
     }
 
     func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar) {

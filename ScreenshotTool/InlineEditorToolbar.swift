@@ -13,7 +13,6 @@ protocol InlineEditorToolbarDelegate: AnyObject {
     func inlineToolbarDidConfirm(_ toolbar: InlineEditorToolbar)
     func inlineToolbarDidCancel(_ toolbar: InlineEditorToolbar)
     func inlineToolbarDidCopy(_ toolbar: InlineEditorToolbar)
-    func inlineToolbarDidSave(_ toolbar: InlineEditorToolbar)
     func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar)
 }
 
@@ -33,11 +32,11 @@ final class InlineEditorToolbar: NSView {
 
     private let tools: [AnnotationTool] = [
         .arrow, .rectangle, .ellipse, .line,
-        .text, .pen, .highlight, .blur, .number
+        .text, .pen, .highlight, .blur, .number, .ocr
     ]
 
     static let barHeight: CGFloat = 36
-    static let barWidth: CGFloat = 700
+    static let barWidth: CGFloat = 660
 
     override init(frame frameRect: NSRect) {
         let size = NSSize(width: Self.barWidth, height: Self.barHeight)
@@ -118,19 +117,10 @@ final class InlineEditorToolbar: NSView {
 
         stack.addArrangedSubview(createDivider())
 
-        // Confirm
-        let confirmBtn = NSButton(title: "完成", target: self, action: #selector(confirmClicked))
-        confirmBtn.bezelStyle = .rounded
-        confirmBtn.controlSize = .small
-        confirmBtn.keyEquivalent = ""
-        confirmBtn.translatesAutoresizingMaskIntoConstraints = false
-        confirmBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
-        stack.addArrangedSubview(confirmBtn)
-
         stack.addArrangedSubview(createDivider())
-        stack.addArrangedSubview(createTextButton(title: "复制", action: #selector(copyClicked)))
-        stack.addArrangedSubview(createTextButton(title: "保存", action: #selector(saveClicked)))
-        stack.addArrangedSubview(createTextButton(title: "Pin", action: #selector(pinClicked)))
+        stack.addArrangedSubview(createIconButton(icon: "doc.on.doc", action: #selector(copyClicked), tooltip: "复制"))
+        stack.addArrangedSubview(createIconButton(icon: "pin", action: #selector(pinClicked), tooltip: "Pin"))
+        stack.addArrangedSubview(createIconButton(icon: "checkmark", action: #selector(confirmClicked), tooltip: "完成"))
 
         updateToolButtons()
     }
@@ -170,13 +160,6 @@ final class InlineEditorToolbar: NSView {
         btn.translatesAutoresizingMaskIntoConstraints = false
         btn.widthAnchor.constraint(equalToConstant: 24).isActive = true
         btn.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        return btn
-    }
-
-    private func createTextButton(title: String, action: Selector) -> NSButton {
-        let btn = NSButton(title: title, target: self, action: action)
-        btn.bezelStyle = .rounded
-        btn.controlSize = .small
         return btn
     }
 
@@ -222,6 +205,5 @@ final class InlineEditorToolbar: NSView {
     @objc private func confirmClicked() { delegate?.inlineToolbarDidConfirm(self) }
     @objc private func cancelClicked() { delegate?.inlineToolbarDidCancel(self) }
     @objc private func copyClicked() { delegate?.inlineToolbarDidCopy(self) }
-    @objc private func saveClicked() { delegate?.inlineToolbarDidSave(self) }
     @objc private func pinClicked() { delegate?.inlineToolbarDidPin(self) }
 }
