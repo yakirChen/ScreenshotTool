@@ -146,7 +146,6 @@ class SelectionCaptureManager {
         print("✅ 截图成功: \(image.size)")
         state = .exporting
 
-        let isPinAction = (action == .pin)
         switch action {
         case .copy:
             NSPasteboard.general.clearContents()
@@ -162,7 +161,7 @@ class SelectionCaptureManager {
         if prefs.playSoundOnCapture { NSSound(named: "Tink")?.play() }
 
         // 右下角浮动缩略图（用户点击/右键进入下一步）
-        if prefs.showFloatingThumbnail && !isPinAction {
+        if prefs.showFloatingThumbnail {
             let globalRect = CGRect(
                 x: screen.frame.origin.x + selectionRect.origin.x,
                 y: screen.frame.origin.y + selectionRect.origin.y,
