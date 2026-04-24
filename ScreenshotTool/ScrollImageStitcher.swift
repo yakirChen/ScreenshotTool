@@ -3,6 +3,11 @@
 import Cocoa
 
 class ScrollImageStitcher {
+
+    private struct OverlapMatch {
+        let overlapPx: Int
+        let confidence: Double
+    }
     
     /// 拼接多张图片
     static func stitch(images: [NSImage]) -> NSImage {
@@ -23,13 +28,19 @@ class ScrollImageStitcher {
               let bottomBitmap = getBitmap(from: bottom) else {
             return simpleStitch(top: top, bottom: bottom)
         }
-        
-        let overlapPx = findOverlap(topBitmap: topBitmap, bottomBitmap: bottomBitmap)
-        
+
+        let match = findOverlap(topBitmap: topBitmap, bottomBitmap: bottomBitmap)
+        let overlapPx = match.overlapPx
+
         // 像素转为 point
         let topScale = topBitmap.pixelsHigh > 0 ? top.size.height / CGFloat(topBitmap.pixelsHigh) : 1
         let overlapPt = CGFloat(overlapPx) * topScale
-        
+
+        // 低置信度时不裁掉重叠，避免误删内容
+        if match.confidence < 0.88 {
+            return simpleStitch(top: top, bottom: bottom)
+        }
+
         return mergeVertically(top: top, bottom: bottom, overlapPoints: overlapPt)
     }
     
@@ -42,30 +53,38 @@ class ScrollImageStitcher {
     // MARK: - 重叠检测（参考 ScrollSnap 的行级匹配）
     
     /// 从 top 图底部和 bottom 图顶部找重叠行数
-    private static func findOverlap(topBitmap: NSBitmapImageRep, bottomBitmap: NSBitmapImageRep) -> Int {
+    private static func findOverlap(topBitmap: NSBitmapImageRep, bottomBitmap: NSBitmapImageRep) -> OverlapMatch {
         let topW = topBitmap.pixelsWide
         let topH = topBitmap.pixelsHigh
         let botW = bottomBitmap.pixelsWide
         let botH = bottomBitmap.pixelsHigh
-        
-        guard topW == botW, topH > 10, botH > 10 else { return 0 }
+
+        guard topW == botW, topH > 10, botH > 10 else {
+            return OverlapMatch(overlapPx: 0, confidence: 0)
+        }
         
         // 预计算 bottom 图顶部每行的"指纹"（行哈希）
         let maxSearch = min(topH, botH) * 70 / 100
         let searchRange = min(400, maxSearch)
         
-        guard searchRange > 10 else { return 0 }
+        guard searchRange > 10 else {
+            return OverlapMatch(overlapPx: 0, confidence: 0)
+        }
         
         // 采样列
         let sampleCols = buildSampleColumns(width: topW, count: 20)
-        guard !sampleCols.isEmpty else { return 0 }
+        guard !sampleCols.isEmpty else {
+            return OverlapMatch(overlapPx: 0, confidence: 0)
+        }
         
         // ✅ 参考 ScrollSnap：从大重叠到小重叠搜索
         // 找到 top 图最底下一行在 bottom 图顶部的匹配位置
         
         // 先获取 top 图底部一行的颜色指纹
         let topBottomRowColors = getRowColors(bitmap: topBitmap, row: topH - 1, cols: sampleCols)
-        guard !topBottomRowColors.isEmpty else { return 0 }
+        guard !topBottomRowColors.isEmpty else {
+            return OverlapMatch(overlapPx: 0, confidence: 0)
+        }
         
         // 在 bottom 图的前 searchRange 行中搜索匹配行
         var bestOverlap = 0
@@ -93,7 +112,13 @@ class ScrollImageStitcher {
             }
         }
         
-        return bestOverlap
+        // 小于 8px 的重叠通常不稳定，按无重叠处理
+        if bestOverlap < 8 || bestScore < 0.75 {
+            return OverlapMatch(overlapPx: 0, confidence: bestScore)
+        }
+
+        let clampedOverlap = min(bestOverlap, max(0, min(topH, botH) - 1))
+        return OverlapMatch(overlapPx: clampedOverlap, confidence: bestScore)
     }
     
     /// 获取一行的颜色采样
