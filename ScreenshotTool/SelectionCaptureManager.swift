@@ -127,8 +127,18 @@ class SelectionCaptureManager {
             NSSound(named: "Tink")?.play()
         }
 
-        // 统一进入编辑器（含标注、OCR、Pin 等工具栏）
-        EditorWindowController.show(with: image)
+        if prefs.openEditorAfterCapture {
+            // 统一进入编辑器（含标注、OCR、Pin 等工具栏）
+            EditorWindowController.show(with: image)
+        } else if prefs.showFloatingThumbnail {
+            let globalRect = CGRect(
+                x: screen.frame.origin.x + selectionRect.origin.x,
+                y: screen.frame.origin.y + selectionRect.origin.y,
+                width: selectionRect.width,
+                height: selectionRect.height
+            )
+            FloatingThumbnail.show(image: image, sourceRect: globalRect)
+        }
     }
 
     func cancelCapture() {

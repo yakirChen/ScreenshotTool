@@ -31,6 +31,7 @@ class PreferencesManager {
         case showFloatingThumbnail = "showFloatingThumbnail"
         case captureTimerSeconds = "captureTimerSeconds"
         case windowCaptureSingleClick = "windowCaptureSingleClick"
+        case openEditorAfterCapture = "openEditorAfterCapture"
     }
 
     // MARK: - Properties
@@ -105,6 +106,12 @@ class PreferencesManager {
     var windowCaptureSingleClick: Bool {
         get { defaults.object(forKey: Key.windowCaptureSingleClick.rawValue) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.windowCaptureSingleClick.rawValue) }
+    }
+
+    /// 截图完成后是否自动打开编辑器
+    var openEditorAfterCapture: Bool {
+        get { defaults.object(forKey: Key.openEditorAfterCapture.rawValue) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.openEditorAfterCapture.rawValue) }
     }
 
     /// 上次选区（屏幕局部坐标）。仅用于同一屏幕同尺寸恢复，超出边界时会被调用方忽略。

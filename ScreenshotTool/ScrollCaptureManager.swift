@@ -250,7 +250,12 @@ class ScrollCaptureManager {
             return
         }
 
-        EditorWindowController.show(with: result)
+        if PreferencesManager.shared.openEditorAfterCapture {
+            EditorWindowController.show(with: result)
+        } else if PreferencesManager.shared.showFloatingThumbnail {
+            let sourceRect = captureScreen?.frame ?? NSScreen.main?.frame ?? .zero
+            FloatingThumbnail.show(image: result, sourceRect: sourceRect)
+        }
 
         if PreferencesManager.shared.copyToClipboardOnCapture {
             NSPasteboard.general.clearContents()

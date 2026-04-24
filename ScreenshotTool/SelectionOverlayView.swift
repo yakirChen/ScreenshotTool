@@ -154,8 +154,17 @@ class SelectionOverlayView: NSView {
         let size = CaptureControlBar.preferredSize()
         let margin: CGFloat = 12
 
-        if hasSelection && captureMode != .fullScreen {
+        if (hasSelection || isSelecting) && captureMode != .fullScreen {
             let rect = normalizedRect(selectionRect)
+            guard rect.width > 3, rect.height > 3 else {
+                bar.frame = NSRect(
+                    x: (bounds.width - size.width) / 2,
+                    y: 40,
+                    width: size.width,
+                    height: size.height
+                )
+                return
+            }
             var x = rect.midX - size.width / 2
             x = max(margin, min(x, bounds.width - size.width - margin))
 
@@ -460,6 +469,7 @@ class SelectionOverlayView: NSView {
             selectionRect = windowFrame
             hasSelection = true
             detectedWindowFrame = nil
+            updateControlBarPosition()
             needsDisplay = true
             if captureMode == .window, PreferencesManager.shared.windowCaptureSingleClick {
                 confirmSelection()
@@ -473,6 +483,7 @@ class SelectionOverlayView: NSView {
         selectionRect = CGRect(origin: point, size: .zero)
         isSelecting = true
         hasSelection = false
+        updateControlBarPosition()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -530,6 +541,7 @@ class SelectionOverlayView: NSView {
             if hasSelection && captureMode != .fullScreen {
                 hasSelection = false
                 selectionRect = .zero
+                updateControlBarPosition()
                 needsDisplay = true
             } else {
                 onCancel?()
