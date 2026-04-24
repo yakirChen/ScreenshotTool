@@ -103,6 +103,7 @@ class SelectionOverlayView: NSView {
         bar.autoresizingMask = [.minXMargin, .maxXMargin, .maxYMargin]
         addSubview(bar)
         controlBar = bar
+        updateControlBarPosition()
     }
 
     private func restoreLastSelectionIfNeeded() {
@@ -114,6 +115,7 @@ class SelectionOverlayView: NSView {
         selectionRect = rect
         hasSelection = true
         needsDisplay = true
+        updateControlBarPosition()
     }
 
     private func handleModeChange() {
@@ -137,7 +139,41 @@ class SelectionOverlayView: NSView {
             selectionRect = .zero
             detectWindows = false
         }
+        updateControlBarPosition()
         needsDisplay = true
+    }
+
+    override func layout() {
+        super.layout()
+        updateControlBarPosition()
+    }
+
+    private func updateControlBarPosition() {
+        guard showControlBar, let bar = controlBar else { return }
+
+        let size = CaptureControlBar.preferredSize()
+        let margin: CGFloat = 12
+
+        if hasSelection && captureMode != .fullScreen {
+            let rect = normalizedRect(selectionRect)
+            var x = rect.midX - size.width / 2
+            x = max(margin, min(x, bounds.width - size.width - margin))
+
+            var y = rect.minY - size.height - 10
+            if y < margin {
+                y = rect.maxY + 10
+            }
+            y = min(y, bounds.height - size.height - margin)
+
+            bar.frame = NSRect(x: x, y: y, width: size.width, height: size.height)
+        } else {
+            bar.frame = NSRect(
+                x: (bounds.width - size.width) / 2,
+                y: 40,
+                width: size.width,
+                height: size.height
+            )
+        }
     }
 
     // MARK: - 绘制
@@ -463,6 +499,7 @@ class SelectionOverlayView: NSView {
                 selectionRect = CGRect(x: newX, y: newY, width: dragStartSize.width, height: dragStartSize.height)
             }
         }
+        updateControlBarPosition()
         needsDisplay = true
     }
 
@@ -480,6 +517,7 @@ class SelectionOverlayView: NSView {
         }
         isDragging = false
         activeHandle = .none
+        updateControlBarPosition()
         needsDisplay = true
     }
 

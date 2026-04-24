@@ -32,9 +32,8 @@ class FullScreenCaptureManager {
                     CaptureAnimation.playFlash(in: screen.frame)
                 }
 
-                if prefs.showFloatingThumbnail, let screen = NSScreen.main {
-                    FloatingThumbnail.show(image: image, sourceRect: screen.frame)
-                }
+                // 全屏截图后直接进入编辑器，统一后置工具栏体验
+                EditorWindowController.show(with: image)
 
             } catch {
                 showError(error.localizedDescription)

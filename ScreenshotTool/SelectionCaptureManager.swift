@@ -127,16 +127,8 @@ class SelectionCaptureManager {
             NSSound(named: "Tink")?.play()
         }
 
-        // 右下角浮动缩略图（用户点击/右键进入下一步）
-        if prefs.showFloatingThumbnail {
-            let globalRect = CGRect(
-                x: screen.frame.origin.x + selectionRect.origin.x,
-                y: screen.frame.origin.y + selectionRect.origin.y,
-                width: selectionRect.width,
-                height: selectionRect.height
-            )
-            FloatingThumbnail.show(image: image, sourceRect: globalRect)
-        }
+        // 统一进入编辑器（含标注、OCR、Pin 等工具栏）
+        EditorWindowController.show(with: image)
     }
 
     func cancelCapture() {
