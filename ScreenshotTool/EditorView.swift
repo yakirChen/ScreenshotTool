@@ -47,6 +47,7 @@ class EditorView: NSView {
                 selectedAnnotation.fontSize = currentFontSize
                 needsDisplay = true
             }
+            updateActiveTextFieldMetrics()
         }
     }
 
@@ -426,7 +427,8 @@ class EditorView: NSView {
         annotation.fontSize = currentFontSize
         editingAnnotation = annotation
 
-        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: 22))
+        let initialHeight = max(22, currentFontSize + 10)
+        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: initialHeight))
         tf.cell = TightTextFieldCell(textCell: "")
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .medium)
         tf.textColor = currentColor
@@ -470,6 +472,17 @@ class EditorView: NSView {
         textField = nil
         editingAnnotation = nil
         needsDisplay = true
+    }
+
+    private func updateActiveTextFieldMetrics() {
+        guard let tf = textField else { return }
+        tf.font = NSFont.systemFont(ofSize: currentFontSize, weight: .medium)
+        let measureText = tf.stringValue.isEmpty ? (tf.placeholderString ?? "输入文字...") : tf.stringValue
+        let attrs: [NSAttributedString.Key: Any] = [.font: tf.font as Any]
+        let textSize = (measureText as NSString).size(withAttributes: attrs)
+        let targetWidth = max(120, min(360, textSize.width + 24))
+        let targetHeight = max(22, currentFontSize + 10)
+        tf.frame.size = CGSize(width: targetWidth, height: targetHeight)
     }
 
     // MARK: - 编号工具
@@ -589,6 +602,10 @@ class EditorView: NSView {
 // MARK: - NSTextFieldDelegate
 
 extension EditorView: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+        updateActiveTextFieldMetrics()
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         finishTextEditing()
     }
