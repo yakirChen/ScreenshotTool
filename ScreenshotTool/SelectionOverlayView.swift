@@ -44,7 +44,6 @@ class SelectionOverlayView: NSView {
     private var controlBar: CaptureControlBar?
     private var annotationEditorView: EditorView?
     private var inlineToolbar: InlineEditorToolbar?
-    private var exportActionBar: NSStackView?
     private var annotationRect: CGRect = .zero
     private var isAnnotating = false
 
@@ -479,39 +478,7 @@ class SelectionOverlayView: NSView {
         addSubview(toolbar)
         inlineToolbar = toolbar
 
-        addExportActionBar()
         window?.makeFirstResponder(editor)
-    }
-
-    private func addExportActionBar() {
-        let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.spacing = 8
-        stack.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-        stack.wantsLayer = true
-        stack.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
-        stack.layer?.cornerRadius = 8
-
-        stack.addArrangedSubview(exportButton(title: "复制", action: #selector(exportCopy)))
-        stack.addArrangedSubview(exportButton(title: "保存", action: #selector(exportSave)))
-        stack.addArrangedSubview(exportButton(title: "Pin", action: #selector(exportPin)))
-        stack.addArrangedSubview(exportButton(title: "取消", action: #selector(cancelAnnotation)))
-
-        let stackSize = stack.fittingSize
-        let barWidth = max(220, stackSize.width)
-        let barHeight = max(36, stackSize.height)
-        let x = max(12, min(annotationRect.midX - barWidth / 2, bounds.width - barWidth - 12))
-        let y = max(12, annotationRect.minY - (barHeight + 18))
-        stack.frame = CGRect(x: x, y: y, width: barWidth, height: barHeight)
-        addSubview(stack)
-        exportActionBar = stack
-    }
-
-    private func exportButton(title: String, action: Selector) -> NSButton {
-        let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
-        button.controlSize = .small
-        return button
     }
 
     private func runCountdown(seconds: Int, completion: @escaping () -> Void) {
@@ -679,5 +646,17 @@ extension SelectionOverlayView: InlineEditorToolbarDelegate {
 
     func inlineToolbarDidCancel(_ toolbar: InlineEditorToolbar) {
         cancelAnnotation()
+    }
+
+    func inlineToolbarDidCopy(_ toolbar: InlineEditorToolbar) {
+        exportCopy()
+    }
+
+    func inlineToolbarDidSave(_ toolbar: InlineEditorToolbar) {
+        exportSave()
+    }
+
+    func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar) {
+        exportPin()
     }
 }
