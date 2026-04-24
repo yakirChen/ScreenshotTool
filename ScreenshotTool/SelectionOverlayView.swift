@@ -472,6 +472,7 @@ class SelectionOverlayView: NSView {
             guard let self else { return }
             guard let toolbar = self.inlineToolbar else { return }
             if let annotation {
+                toolbar.currentTool = annotation.tool
                 toolbar.currentColor = annotation.color
                 toolbar.currentLineWidth = annotation.lineWidth
                 if annotation.tool == .text {

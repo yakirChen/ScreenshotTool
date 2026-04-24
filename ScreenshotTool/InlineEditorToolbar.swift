@@ -52,6 +52,7 @@ final class InlineEditorToolbar: NSObject {
     private let panel = InlineToolbarPanel()
     private var hostingView: NSHostingView<InlineToolbarRootView>?
     private var cancellables = Set<AnyCancellable>()
+    private var lastOverlayBounds: CGRect = .zero
 
     private let tools: [AnnotationTool] = [.select, .arrow, .rectangle, .ellipse, .line, .text, .pen, .highlight, .blur, .number, .ocr]
 
@@ -67,6 +68,7 @@ final class InlineEditorToolbar: NSObject {
 
     func present(in parentWindow: NSWindow, overlayBounds: CGRect, selectionRect: CGRect, screen: NSScreen, animated: Bool = false) {
         state.selectionRect = selectionRect
+        lastOverlayBounds = overlayBounds
         if hostingView == nil {
             let root = InlineToolbarRootView(state: state, tools: tools, handler: self)
             let host = NSHostingView(rootView: root)
@@ -85,6 +87,8 @@ final class InlineEditorToolbar: NSObject {
 
     func updatePosition(overlayBounds: CGRect, selectionRect: CGRect, screen: NSScreen, animated: Bool = true) {
         guard let hostingView else { return }
+        state.selectionRect = selectionRect
+        lastOverlayBounds = overlayBounds
 
         let fitting = hostingView.fittingSize
         let toolbarSize = NSSize(width: max(440, fitting.width), height: max(48, fitting.height))
@@ -142,8 +146,11 @@ final class InlineEditorToolbar: NSObject {
 
     private func refreshLayoutSize() {
         guard let parent = panel.parent, let screen = parent.screen else { return }
+        let overlayBounds = lastOverlayBounds == .zero
+            ? CGRect(origin: .zero, size: screen.frame.size)
+            : lastOverlayBounds
         updatePosition(
-            overlayBounds: CGRect(origin: .zero, size: screen.frame.size),
+            overlayBounds: overlayBounds,
             selectionRect: state.selectionRect,
             screen: screen,
             animated: true
