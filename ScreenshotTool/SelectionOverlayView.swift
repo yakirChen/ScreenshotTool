@@ -65,7 +65,6 @@ class SelectionOverlayView: NSView {
         addTrackingArea(trackingArea)
 
         setupControlBar()
-        restoreLastSelectionIfNeeded()
 
         if let session, let screen = associatedScreen {
             session.ensureWindowsLoaded(for: screen)
@@ -90,21 +89,6 @@ class SelectionOverlayView: NSView {
         bar.autoresizingMask = [.minXMargin, .maxXMargin, .maxYMargin]
         addSubview(bar)
         controlBar = bar
-    }
-
-    private func restoreLastSelectionIfNeeded() {
-        guard let session,
-              let screen = associatedScreen,
-              PreferencesManager.shared.rememberLastSelection,
-              let rect = PreferencesManager.shared.lastSelectionRect,
-              bounds.contains(rect.origin),
-              bounds.contains(CGPoint(x: rect.maxX, y: rect.maxY)),
-              rect.width > 3, rect.height > 3
-        else { return }
-
-        session.setInitialSelection(GeometryMapper.localToGlobal(rect, in: screen))
-        renderModel = session.renderModel(for: screen)
-        needsDisplay = true
     }
 
     // MARK: - 绘制
