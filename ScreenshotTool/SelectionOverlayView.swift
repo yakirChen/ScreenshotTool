@@ -482,31 +482,22 @@ class SelectionOverlayView: NSView {
         addSubview(editor)
         annotationEditorView = editor
 
-        let toolbar = InlineEditorToolbar(
-            frame: NSRect(
-                x: 0,
-                y: 0,
-                width: InlineEditorToolbar.barWidth,
-                height: InlineEditorToolbar.barHeight
-            )
-        )
-        let toolbarWidth = toolbar.frame.width
-        // 磁贴式工具栏跟随选框底部；若底部空间不足则放到选框上方
-        let preferredY = rect.minY - InlineEditorToolbar.barHeight - 12
-        let toolbarY: CGFloat
-        if preferredY >= 12 {
-            toolbarY = preferredY
-        } else {
-            toolbarY = min(bounds.height - InlineEditorToolbar.barHeight - 12, rect.maxY + 12)
-        }
-        let toolbarX = max(12, min((bounds.width - toolbarWidth) / 2, bounds.width - toolbarWidth - 12))
-        toolbar.frame.origin = CGPoint(x: toolbarX, y: toolbarY)
+        let toolbar = InlineEditorToolbar()
         toolbar.delegate = self
         toolbar.currentTool = .arrow
         toolbar.currentColor = editor.currentColor
         toolbar.currentLineWidth = editor.currentLineWidth
         toolbar.currentFontSize = editor.currentFontSize
-        addSubview(toolbar)
+        toolbar.updateSelectionRect(rect)
+        if let window, let screen = associatedScreen {
+            toolbar.present(
+                in: window,
+                overlayBounds: bounds,
+                selectionRect: rect,
+                screen: screen,
+                animated: false
+            )
+        }
         inlineToolbar = toolbar
 
         window?.makeFirstResponder(editor)
@@ -561,16 +552,19 @@ class SelectionOverlayView: NSView {
     }
 
     @objc private func exportCopy() {
+        inlineToolbar?.dismiss()
         guard let image = annotationEditorView?.exportImage() else { return }
         onComplete?(annotationRect, image, .copy)
     }
 
     @objc private func exportPin() {
+        inlineToolbar?.dismiss()
         guard let image = annotationEditorView?.exportImage() else { return }
         onComplete?(annotationRect, image, .pin)
     }
 
     @objc private func cancelAnnotation() {
+        inlineToolbar?.dismiss()
         onCancel?()
     }
 
