@@ -21,10 +21,7 @@ class PinWindow: NSWindow {
     }
 
     init(image: NSImage) {
-        let size = NSSize(
-            width: min(image.size.width, 600),
-            height: min(image.size.height, 600)
-        )
+        let size = PinWindow.aspectFitSize(for: image.size, max: NSSize(width: 600, height: 600))
 
         super.init(
             contentRect: CGRect(origin: .zero, size: size),
@@ -40,10 +37,17 @@ class PinWindow: NSWindow {
         self.isMovableByWindowBackground = true
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.center()
+        self.contentAspectRatio = image.size
 
         let pinView = PinView(frame: CGRect(origin: .zero, size: size))
         pinView.image = image
         self.contentView = pinView
+    }
+
+    private static func aspectFitSize(for original: NSSize, max: NSSize) -> NSSize {
+        guard original.width > 0, original.height > 0 else { return max }
+        let scale = min(max.width / original.width, max.height / original.height, 1.0)
+        return NSSize(width: original.width * scale, height: original.height * scale)
     }
 }
 
@@ -70,7 +74,10 @@ class PinView: NSView {
         context.fill(bounds)
 
         // 图片
-        image?.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: opacity)
+        if let image {
+            let drawRect = aspectFitRect(imageSize: image.size, in: bounds)
+            image.draw(in: drawRect, from: .zero, operation: .sourceOver, fraction: opacity)
+        }
 
         // 边框
         context.setStrokeColor(NSColor.gray.withAlphaComponent(0.3).cgColor)
@@ -144,5 +151,17 @@ class PinView: NSView {
     @objc private func setOpacity(_ sender: NSMenuItem) {
         opacity = CGFloat(sender.tag) / 100.0
         needsDisplay = true
+    }
+
+    private func aspectFitRect(imageSize: NSSize, in bounds: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let size = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
     }
 }
