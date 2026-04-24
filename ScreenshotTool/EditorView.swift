@@ -427,16 +427,22 @@ class EditorView: NSView {
         annotation.fontSize = currentFontSize
         editingAnnotation = annotation
 
-        let initialHeight = max(22, currentFontSize + 10)
+        let initialHeight = max(24, currentFontSize + 8)
         let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: initialHeight))
         tf.cell = TightTextFieldCell(textCell: "")
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .medium)
         tf.textColor = currentColor
-        tf.backgroundColor = NSColor.white.withAlphaComponent(0.9)
-        tf.isBezeled = true
-        tf.bezelStyle = .roundedBezel
+        tf.isBezeled = false
+        tf.isBordered = false
+        tf.drawsBackground = false
         tf.isEditable = true
         tf.placeholderString = "输入文字..."
+        tf.focusRingType = .none
+        tf.wantsLayer = true
+        tf.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.9).cgColor
+        tf.layer?.cornerRadius = 6
+        tf.layer?.borderWidth = 1
+        tf.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
         tf.delegate = self
         tf.target = self
         tf.action = #selector(textFieldAction(_:))
@@ -481,7 +487,9 @@ class EditorView: NSView {
         let attrs: [NSAttributedString.Key: Any] = [.font: tf.font as Any]
         let textSize = (measureText as NSString).size(withAttributes: attrs)
         let targetWidth = max(120, min(360, textSize.width + 24))
-        let targetHeight = max(22, currentFontSize + 10)
+        let font = tf.font ?? NSFont.systemFont(ofSize: currentFontSize, weight: .medium)
+        let lineHeight = font.ascender - font.descender + font.leading
+        let targetHeight = max(24, lineHeight + 8)
         tf.frame.size = CGSize(width: targetWidth, height: targetHeight)
     }
 
