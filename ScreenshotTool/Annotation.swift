@@ -79,9 +79,17 @@ class Annotation {
 
     /// 文字属性
     var textAttributes: [NSAttributedString.Key: Any] {
+        let textWeight: NSFont.Weight
+        switch lineWidth {
+        case ..<2: textWeight = .regular
+        case ..<3: textWeight = .medium
+        case ..<4: textWeight = .semibold
+        case ..<6: textWeight = .bold
+        default: textWeight = .heavy
+        }
         return [
             .foregroundColor: color,
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .medium)
+            .font: NSFont.systemFont(ofSize: fontSize, weight: tool == .text ? textWeight : .medium)
         ]
     }
 
