@@ -595,6 +595,12 @@ extension SelectionOverlayView: CaptureControlBarDelegate {
 extension SelectionOverlayView: InlineEditorToolbarDelegate {
     func inlineToolbar(_ toolbar: InlineEditorToolbar, didSelectTool tool: AnnotationTool) {
         annotationEditorView?.currentTool = tool
+        if let editor = annotationEditorView {
+            window?.makeFirstResponder(editor)
+        }
+        if tool == .ocr {
+            showAnnotationHint("拖拽框选要识别的文字区域")
+        }
     }
 
     func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeColor color: NSColor) {
@@ -623,5 +629,24 @@ extension SelectionOverlayView: InlineEditorToolbarDelegate {
 
     func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar) {
         exportPin()
+    }
+
+    private func showAnnotationHint(_ message: String) {
+        let label = NSTextField(labelWithString: message)
+        label.tag = 8899
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .white
+        label.wantsLayer = true
+        label.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        label.layer?.cornerRadius = 6
+        label.layer?.masksToBounds = true
+        label.alignment = .center
+        label.frame = CGRect(x: max(12, (bounds.width - 220) / 2), y: 16, width: 220, height: 28)
+        subviews.filter { $0.tag == 8899 }.forEach { $0.removeFromSuperview() }
+        addSubview(label)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak label] in
+            label?.removeFromSuperview()
+        }
     }
 }
