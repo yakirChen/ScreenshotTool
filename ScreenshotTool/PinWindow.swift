@@ -7,6 +7,7 @@
 
 import Cocoa
 
+@MainActor
 class PinWindow: NSWindow {
 
     private static var pinnedWindows: [PinWindow] = []

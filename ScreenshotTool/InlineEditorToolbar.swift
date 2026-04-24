@@ -62,10 +62,11 @@ final class InlineEditorToolbar: NSObject {
     }
 
     deinit {
-        panel.orderOut(nil)
+        dismiss()
     }
 
     func present(in parentWindow: NSWindow, overlayBounds: CGRect, selectionRect: CGRect, screen: NSScreen, animated: Bool = false) {
+        state.selectionRect = selectionRect
         if hostingView == nil {
             let root = InlineToolbarRootView(state: state, tools: tools, handler: self)
             let host = NSHostingView(rootView: root)
