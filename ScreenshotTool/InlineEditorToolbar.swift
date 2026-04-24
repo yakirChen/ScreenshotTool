@@ -29,17 +29,17 @@ final class InlineEditorToolbar: NSView {
         didSet { colorWell?.color = currentColor }
     }
     var currentLineWidth: CGFloat = 2 {
-        didSet { lineWidthSlider?.doubleValue = Double(currentLineWidth) }
+        didSet { lineWidthPopup?.selectItem(withTitle: widthOptionTitle(currentLineWidth)) }
     }
     var currentFontSize: CGFloat = 16 {
-        didSet { fontSizeSlider?.doubleValue = Double(currentFontSize) }
+        didSet { fontSizePopup?.selectItem(withTitle: fontOptionTitle(currentFontSize)) }
     }
 
     private var toolButtons: [AnnotationTool: NSButton] = [:]
     private var colorWell: NSColorWell?
     private weak var contentStack: NSStackView?
-    private var lineWidthSlider: NSSlider?
-    private var fontSizeSlider: NSSlider?
+    private var lineWidthPopup: NSPopUpButton?
+    private var fontSizePopup: NSPopUpButton?
 
     private let tools: [AnnotationTool] = [
         .arrow, .rectangle, .ellipse, .line,
@@ -122,27 +122,33 @@ final class InlineEditorToolbar: NSView {
 
         stack.addArrangedSubview(createDivider())
 
-        let widthSlider = NSSlider(value: Double(currentLineWidth), minValue: 1, maxValue: 12, target: self, action: #selector(lineWidthChanged(_:)))
-        widthSlider.controlSize = .small
-        widthSlider.frame.size.width = 64
-        widthSlider.translatesAutoresizingMaskIntoConstraints = false
-        widthSlider.widthAnchor.constraint(equalToConstant: 64).isActive = true
-        widthSlider.toolTip = "线宽"
-        lineWidthSlider = widthSlider
+        let widthPopup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 64, height: 22), pullsDown: false)
+        widthPopup.addItems(withTitles: [1, 2, 3, 4, 6, 8, 10, 12].map { widthOptionTitle(CGFloat($0)) })
+        widthPopup.selectItem(withTitle: widthOptionTitle(currentLineWidth))
+        widthPopup.controlSize = .small
+        widthPopup.target = self
+        widthPopup.action = #selector(lineWidthChanged(_:))
+        widthPopup.toolTip = "线宽"
+        widthPopup.translatesAutoresizingMaskIntoConstraints = false
+        widthPopup.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        lineWidthPopup = widthPopup
         stack.addArrangedSubview(makeTagLabel("粗"))
-        stack.addArrangedSubview(widthSlider)
+        stack.addArrangedSubview(widthPopup)
 
         stack.addArrangedSubview(createDivider())
 
-        let textSlider = NSSlider(value: Double(currentFontSize), minValue: 12, maxValue: 48, target: self, action: #selector(fontSizeChanged(_:)))
-        textSlider.controlSize = .small
-        textSlider.frame.size.width = 64
-        textSlider.translatesAutoresizingMaskIntoConstraints = false
-        textSlider.widthAnchor.constraint(equalToConstant: 64).isActive = true
-        textSlider.toolTip = "字体大小"
-        fontSizeSlider = textSlider
+        let textPopup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 72, height: 22), pullsDown: false)
+        textPopup.addItems(withTitles: [12, 14, 16, 18, 20, 24, 28, 32, 40, 48].map { fontOptionTitle(CGFloat($0)) })
+        textPopup.selectItem(withTitle: fontOptionTitle(currentFontSize))
+        textPopup.controlSize = .small
+        textPopup.target = self
+        textPopup.action = #selector(fontSizeChanged(_:))
+        textPopup.toolTip = "字体大小"
+        textPopup.translatesAutoresizingMaskIntoConstraints = false
+        textPopup.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        fontSizePopup = textPopup
         stack.addArrangedSubview(makeTagLabel("字"))
-        stack.addArrangedSubview(textSlider)
+        stack.addArrangedSubview(textPopup)
 
         stack.addArrangedSubview(createDivider())
 
@@ -255,12 +261,26 @@ final class InlineEditorToolbar: NSView {
     @objc private func cancelClicked() { delegate?.inlineToolbarDidCancel(self) }
     @objc private func copyClicked() { delegate?.inlineToolbarDidCopy(self) }
     @objc private func pinClicked() { delegate?.inlineToolbarDidPin(self) }
-    @objc private func lineWidthChanged(_ sender: NSSlider) {
-        currentLineWidth = CGFloat(sender.doubleValue)
+    @objc private func lineWidthChanged(_ sender: NSPopUpButton) {
+        guard let title = sender.selectedItem?.title,
+              let value = Double(title.replacingOccurrences(of: "px", with: ""))
+        else { return }
+        currentLineWidth = CGFloat(value)
         delegate?.inlineToolbar(self, didChangeLineWidth: currentLineWidth)
     }
-    @objc private func fontSizeChanged(_ sender: NSSlider) {
-        currentFontSize = CGFloat(sender.doubleValue)
+    @objc private func fontSizeChanged(_ sender: NSPopUpButton) {
+        guard let title = sender.selectedItem?.title,
+              let value = Double(title.replacingOccurrences(of: "pt", with: ""))
+        else { return }
+        currentFontSize = CGFloat(value)
         delegate?.inlineToolbar(self, didChangeFontSize: currentFontSize)
+    }
+
+    private func widthOptionTitle(_ value: CGFloat) -> String {
+        "\(Int(value))px"
+    }
+
+    private func fontOptionTitle(_ value: CGFloat) -> String {
+        "\(Int(value))pt"
     }
 }
