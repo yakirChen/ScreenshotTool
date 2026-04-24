@@ -46,7 +46,7 @@ final class InlineEditorToolbar: NSView {
         .text, .pen, .highlight, .blur, .number, .ocr
     ]
 
-    static let barHeight: CGFloat = 42
+    static let barHeight: CGFloat = 34
     static let barWidth: CGFloat = 420
 
     override init(frame frameRect: NSRect) {
@@ -62,25 +62,25 @@ final class InlineEditorToolbar: NSView {
         wantsLayer = true
 
         let visual = NSVisualEffectView(frame: bounds)
-        visual.material = .hudWindow
+        visual.material = .titlebar
         visual.blendingMode = .behindWindow
         visual.state = .active
         visual.wantsLayer = true
-        visual.layer?.cornerRadius = 12
+        visual.layer?.cornerRadius = 8
         visual.layer?.masksToBounds = true
         visual.autoresizingMask = [.width, .height]
         addSubview(visual)
 
         layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.22
-        layer?.shadowRadius = 10
-        layer?.shadowOffset = CGSize(width: 0, height: -3)
+        layer?.shadowOpacity = 0.1
+        layer?.shadowRadius = 4
+        layer?.shadowOffset = CGSize(width: 0, height: -1)
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.55).cgColor
 
         let stack = NSStackView()
         stack.orientation = .horizontal
-        stack.spacing = 4
+        stack.spacing = 2
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
@@ -93,7 +93,7 @@ final class InlineEditorToolbar: NSView {
         ])
 
         // Cancel
-        let cancelBtn = createIconButton(
+        let cancelBtn = createFlatIconButton(
             icon: "xmark", action: #selector(cancelClicked), tooltip: "取消 ESC")
         stack.addArrangedSubview(cancelBtn)
 
@@ -156,9 +156,9 @@ final class InlineEditorToolbar: NSView {
 
         // Undo / Redo
         stack.addArrangedSubview(
-            createIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
+            createFlatIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
         stack.addArrangedSubview(
-            createIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
+            createFlatIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
 
         stack.addArrangedSubview(createDivider())
         stack.addArrangedSubview(createActionButton(title: "复制", icon: "doc.on.doc", action: #selector(copyClicked)))
@@ -179,7 +179,7 @@ final class InlineEditorToolbar: NSView {
 
     private func createToolButton(tool: AnnotationTool) -> NSButton {
         let btn = NSButton(frame: .zero)
-        btn.bezelStyle = .recessed
+        btn.bezelStyle = .regularSquare
         btn.isBordered = false
         btn.image = NSImage(systemSymbolName: tool.icon, accessibilityDescription: tool.rawValue)?
             .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
@@ -190,17 +190,17 @@ final class InlineEditorToolbar: NSView {
         btn.tag = AnnotationTool.allCases.firstIndex(of: tool) ?? 0
         btn.setButtonType(.toggle)
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        btn.widthAnchor.constraint(equalToConstant: 22).isActive = true
         btn.heightAnchor.constraint(equalToConstant: 22).isActive = true
         btn.wantsLayer = true
         btn.layer?.cornerRadius = 4
         return btn
     }
 
-    private func createIconButton(icon: String, action: Selector, tooltip: String) -> NSButton {
+    private func createFlatIconButton(icon: String, action: Selector, tooltip: String) -> NSButton {
         let btn = NSButton(frame: .zero)
-        btn.bezelStyle = .texturedRounded
-        btn.isBordered = true
+        btn.bezelStyle = .regularSquare
+        btn.isBordered = false
         btn.image = NSImage(systemSymbolName: icon, accessibilityDescription: tooltip)?
             .withSymbolConfiguration(.init(pointSize: 11, weight: .regular))
         btn.contentTintColor = .secondaryLabelColor
@@ -208,10 +208,10 @@ final class InlineEditorToolbar: NSView {
         btn.target = self
         btn.action = action
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        btn.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        btn.widthAnchor.constraint(equalToConstant: 22).isActive = true
+        btn.heightAnchor.constraint(equalToConstant: 22).isActive = true
         btn.wantsLayer = true
-        btn.layer?.cornerRadius = 6
+        btn.layer?.cornerRadius = 4
         return btn
     }
 
@@ -225,17 +225,18 @@ final class InlineEditorToolbar: NSView {
         button.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)?
             .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
         button.imagePosition = .imageLeading
-        button.bezelStyle = .rounded
+        button.bezelStyle = .texturedRounded
         button.controlSize = .small
-        button.font = .systemFont(ofSize: 12, weight: .medium)
+        button.font = .systemFont(ofSize: 11, weight: .medium)
         button.contentTintColor = accent ? .white : .labelColor
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 5
+        button.layer?.borderWidth = accent ? 0 : 1
+        button.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.7).cgColor
         if accent {
-            button.wantsLayer = true
             button.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-            button.layer?.cornerRadius = 6
-            button.layer?.borderWidth = 0
             button.isBordered = false
         }
         return button
@@ -244,16 +245,16 @@ final class InlineEditorToolbar: NSView {
     private func createDivider() -> NSView {
         let v = NSView()
         v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.7).cgColor
+        v.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
         v.translatesAutoresizingMaskIntoConstraints = false
         v.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        v.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        v.heightAnchor.constraint(equalToConstant: 14).isActive = true
         return v
     }
 
     private func makeTagLabel(_ title: String) -> NSTextField {
         let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 10, weight: .semibold)
+        label.font = .systemFont(ofSize: 10, weight: .regular)
         label.textColor = .secondaryLabelColor
         return label
     }
@@ -264,9 +265,9 @@ final class InlineEditorToolbar: NSView {
         for (tool, button) in toolButtons {
             let isActive = (tool == currentTool)
             button.state = isActive ? .on : .off
-            button.contentTintColor = isActive ? .controlAccentColor : .secondaryLabelColor
+            button.contentTintColor = isActive ? .systemRed : .secondaryLabelColor
             button.layer?.backgroundColor = isActive
-                ? NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
+                ? NSColor.systemRed.withAlphaComponent(0.15).cgColor
                 : NSColor.clear.cgColor
         }
     }
