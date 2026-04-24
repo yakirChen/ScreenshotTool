@@ -19,6 +19,7 @@ class SelectionOverlayView: NSView {
     var associatedScreen: NSScreen?
     var frozenBackground: NSImage?
     var showControlBar: Bool = true
+    var enableAnnotationAfterCapture: Bool = true
     var captureMode: CaptureMode = .area {
         didSet {
             guard let screen = associatedScreen else { return }
@@ -442,7 +443,11 @@ class SelectionOverlayView: NSView {
                 guard let screen = associatedScreen else { return }
                 let image = try await ScreenCaptureService.shared.captureArea(rect: rect, screen: screen)
                 session?.freezeSelection(image: image, localRect: rect, in: screen)
-                enterAnnotationMode(image: image, rect: rect)
+                if enableAnnotationAfterCapture {
+                    enterAnnotationMode(image: image, rect: rect)
+                } else {
+                    onComplete?(rect, image, .copy)
+                }
             } catch {
                 print("❌ 截图失败: \(error)")
                 onCancel?()

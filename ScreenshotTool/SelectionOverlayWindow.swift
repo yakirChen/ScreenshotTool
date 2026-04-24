@@ -18,7 +18,13 @@ class SelectionOverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    init(screen: NSScreen, session: CaptureSession, showControlBar: Bool = true, initialMode: CaptureMode = .area) {
+    init(
+        screen: NSScreen,
+        session: CaptureSession,
+        showControlBar: Bool = true,
+        initialMode: CaptureMode = .area,
+        enableAnnotationAfterCapture: Bool = true
+    ) {
         self.associatedScreen = screen
 
         super.init(
@@ -46,6 +52,7 @@ class SelectionOverlayWindow: NSWindow {
         selectionView.associatedScreen = screen
         selectionView.captureMode = initialMode
         selectionView.showControlBar = showControlBar
+        selectionView.enableAnnotationAfterCapture = enableAnnotationAfterCapture
         selectionView.session = session
         selectionView.autoresizingMask = [.width, .height]
         self.contentView = selectionView

@@ -42,7 +42,8 @@ class ScrollCaptureManager {
         let window = SelectionOverlayWindow(
             screen: screen,
             session: session,
-            showControlBar: false
+            showControlBar: false,
+            enableAnnotationAfterCapture: false
         )
 
         if let view = window.contentView as? SelectionOverlayView {
@@ -54,7 +55,7 @@ class ScrollCaptureManager {
             }
         }
 
-        window.onComplete = { [weak self] rect, captureScreen, _ in
+        window.onComplete = { [weak self] rect, captureScreen, _, _ in
             self?.beginScrollCapture(rect: rect, screen: captureScreen)
             window.orderOut(nil)
         }
