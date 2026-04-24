@@ -63,7 +63,7 @@ final class InlineEditorToolbar: NSObject {
     }
 
     deinit {
-        dismiss()
+        panel.orderOut(nil)
     }
 
     func present(in parentWindow: NSWindow, overlayBounds: CGRect, selectionRect: CGRect, screen: NSScreen, animated: Bool = false) {
