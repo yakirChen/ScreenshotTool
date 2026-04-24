@@ -480,8 +480,14 @@ class SelectionOverlayView: NSView {
             )
         )
         let toolbarWidth = toolbar.frame.width
-        // 磁贴式工具栏停靠到底部，提升单手操作连贯性
-        let toolbarY: CGFloat = 20
+        // 磁贴式工具栏跟随选框底部；若底部空间不足则放到选框上方
+        let preferredY = rect.minY - InlineEditorToolbar.barHeight - 12
+        let toolbarY: CGFloat
+        if preferredY >= 12 {
+            toolbarY = preferredY
+        } else {
+            toolbarY = min(bounds.height - InlineEditorToolbar.barHeight - 12, rect.maxY + 12)
+        }
         let toolbarX = max(12, min((bounds.width - toolbarWidth) / 2, bounds.width - toolbarWidth - 12))
         toolbar.frame.origin = CGPoint(x: toolbarX, y: toolbarY)
         toolbar.delegate = self
