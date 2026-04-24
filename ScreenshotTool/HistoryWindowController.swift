@@ -145,11 +145,11 @@ class HistoryWindowController: NSWindowController {
         let panel = previewPanel ?? createPreviewPanel()
         previewPanel = panel
 
-        let maxPreview = NSSize(width: 260, height: 180)
+        let maxPreview = NSSize(width: 360, height: 240)
         let scale = min(maxPreview.width / image.size.width, maxPreview.height / image.size.height, 1.0)
         let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
 
-        let contentSize = NSSize(width: max(180, size.width + 20), height: size.height + 44)
+        let contentSize = NSSize(width: max(220, size.width + 20), height: size.height + 44)
         panel.setContentSize(contentSize)
         panel.setFrameTopLeftPoint(CGPoint(x: screenPoint.x + 18, y: screenPoint.y - 8))
 
@@ -176,7 +176,7 @@ class HistoryWindowController: NSWindowController {
 
     private func createPreviewPanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: CGRect(x: 0, y: 0, width: 220, height: 170),
+            contentRect: CGRect(x: 0, y: 0, width: 280, height: 220),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -203,7 +203,7 @@ class HistoryWindowController: NSWindowController {
         label.alignment = .center
         container.addSubview(label)
 
-        let imageView = NSImageView(frame: CGRect(x: 10, y: 14, width: 200, height: 130))
+        let imageView = NSImageView(frame: CGRect(x: 10, y: 14, width: 260, height: 170))
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
         imageView.layer?.cornerRadius = 6
@@ -249,6 +249,7 @@ extension HistoryWindowController: NSTableViewDataSource, NSTableViewDelegate {
 }
 
 final class HistoryRowView: NSTableCellView {
+    private let thumbnailView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let sizeLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton()
@@ -267,14 +268,23 @@ final class HistoryRowView: NSTableCellView {
     private func setup() {
         wantsLayer = true
 
+        thumbnailView.frame = CGRect(x: 10, y: 5, width: 52, height: 32)
+        thumbnailView.imageScaling = .scaleProportionallyUpOrDown
+        thumbnailView.wantsLayer = true
+        thumbnailView.layer?.cornerRadius = 4
+        thumbnailView.layer?.masksToBounds = true
+        thumbnailView.layer?.borderColor = NSColor.separatorColor.cgColor
+        thumbnailView.layer?.borderWidth = 1
+        addSubview(thumbnailView)
+
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         titleLabel.textColor = .labelColor
-        titleLabel.frame = CGRect(x: 14, y: 20, width: 340, height: 18)
+        titleLabel.frame = CGRect(x: 72, y: 20, width: 340, height: 18)
         addSubview(titleLabel)
 
         sizeLabel.font = .systemFont(ofSize: 11)
         sizeLabel.textColor = .secondaryLabelColor
-        sizeLabel.frame = CGRect(x: 14, y: 4, width: 260, height: 15)
+        sizeLabel.frame = CGRect(x: 72, y: 4, width: 360, height: 15)
         addSubview(sizeLabel)
 
         deleteButton.frame = CGRect(x: 0, y: 10, width: 24, height: 24)
@@ -296,6 +306,13 @@ final class HistoryRowView: NSTableCellView {
     func configure(with entry: HistoryManager.HistoryItem) {
         titleLabel.stringValue = entry.displayName
         sizeLabel.stringValue = "\(entry.width) × \(entry.height) · \(URL(fileURLWithPath: entry.filePath).lastPathComponent)"
+        thumbnailView.image = nil
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image = HistoryManager.shared.getImage(for: entry)
+            DispatchQueue.main.async { [weak self] in
+                self?.thumbnailView.image = image
+            }
+        }
     }
 
     @objc private func deleteClicked() {
