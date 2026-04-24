@@ -312,7 +312,7 @@ final class HoverTableView: NSTableView {
         if let tracking {
             removeTrackingArea(tracking)
         }
-        let options: NSTrackingArea.Options = [.mouseMoved, .mouseExited, .activeInActiveApp, .inVisibleRect]
+        let options: NSTrackingArea.Options = [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect]
         let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
         addTrackingArea(area)
         tracking = area
