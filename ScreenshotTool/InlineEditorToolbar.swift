@@ -62,9 +62,7 @@ final class InlineEditorToolbar: NSObject {
     }
 
     deinit {
-        Task { @MainActor in
-            panel.orderOut(nil)
-        }
+        panel.orderOut(nil)
     }
 
     func present(in parentWindow: NSWindow, overlayBounds: CGRect, selectionRect: CGRect, screen: NSScreen, animated: Bool = false) {
@@ -117,6 +115,7 @@ final class InlineEditorToolbar: NSObject {
     }
 
     func dismiss() {
+        guard panel.parent != nil || panel.isVisible else { return }
         panel.orderOut(nil)
         panel.parent?.removeChildWindow(panel)
     }

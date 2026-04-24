@@ -552,20 +552,32 @@ class SelectionOverlayView: NSView {
     }
 
     @objc private func exportCopy() {
-        inlineToolbar?.dismiss()
         guard let image = annotationEditorView?.exportImage() else { return }
+        let toolbar = inlineToolbar
+        inlineToolbar = nil
         onComplete?(annotationRect, image, .copy)
+        DispatchQueue.main.async {
+            toolbar?.dismiss()
+        }
     }
 
     @objc private func exportPin() {
-        inlineToolbar?.dismiss()
         guard let image = annotationEditorView?.exportImage() else { return }
+        let toolbar = inlineToolbar
+        inlineToolbar = nil
         onComplete?(annotationRect, image, .pin)
+        DispatchQueue.main.async {
+            toolbar?.dismiss()
+        }
     }
 
     @objc private func cancelAnnotation() {
-        inlineToolbar?.dismiss()
+        let toolbar = inlineToolbar
+        inlineToolbar = nil
         onCancel?()
+        DispatchQueue.main.async {
+            toolbar?.dismiss()
+        }
     }
 
     private func normalizedRect(_ rect: CGRect) -> CGRect {

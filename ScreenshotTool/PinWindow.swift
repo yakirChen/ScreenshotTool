@@ -38,6 +38,7 @@ class PinWindow: NSWindow {
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.center()
         self.contentAspectRatio = image.size
+        self.delegate = self
 
         let pinView = PinView(frame: CGRect(origin: .zero, size: size))
         pinView.image = image
@@ -48,6 +49,12 @@ class PinWindow: NSWindow {
         guard original.width > 0, original.height > 0 else { return max }
         let scale = min(max.width / original.width, max.height / original.height, 1.0)
         return NSSize(width: original.width * scale, height: original.height * scale)
+    }
+}
+
+extension PinWindow: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        Self.pinnedWindows.removeAll { $0 === self }
     }
 }
 
