@@ -77,7 +77,8 @@ final class InlineEditorToolbar: NSObject {
             hostingView = host
         }
 
-        if panel.parent == nil {
+        if panel.parent !== parentWindow {
+            panel.parent?.removeChildWindow(panel)
             parentWindow.addChildWindow(panel, ordered: .above)
         }
 

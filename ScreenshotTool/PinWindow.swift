@@ -17,6 +17,7 @@ class PinWindow: NSWindow {
 
     static func pin(image: NSImage) {
         let window = PinWindow(image: image)
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         pinnedWindows.append(window)
     }
