@@ -474,9 +474,18 @@ class SelectionOverlayView: NSView {
         addSubview(editor)
         annotationEditorView = editor
 
+        let toolbar = InlineEditorToolbar(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: InlineEditorToolbar.barWidth,
+                height: InlineEditorToolbar.barHeight
+            )
+        )
+        let toolbarWidth = toolbar.frame.width
         let toolbarY = min(bounds.height - InlineEditorToolbar.barHeight - 12, rect.maxY + 12)
-        let toolbarX = max(12, min((bounds.width - InlineEditorToolbar.barWidth) / 2, bounds.width - InlineEditorToolbar.barWidth - 12))
-        let toolbar = InlineEditorToolbar(frame: NSRect(x: toolbarX, y: toolbarY, width: InlineEditorToolbar.barWidth, height: InlineEditorToolbar.barHeight))
+        let toolbarX = max(12, min((bounds.width - toolbarWidth) / 2, bounds.width - toolbarWidth - 12))
+        toolbar.frame.origin = CGPoint(x: toolbarX, y: toolbarY)
         toolbar.delegate = self
         toolbar.currentTool = .arrow
         toolbar.currentColor = editor.currentColor

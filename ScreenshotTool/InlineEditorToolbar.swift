@@ -29,6 +29,7 @@ final class InlineEditorToolbar: NSView {
 
     private var toolButtons: [AnnotationTool: NSButton] = [:]
     private var colorWell: NSColorWell?
+    private weak var contentStack: NSStackView?
 
     private let tools: [AnnotationTool] = [
         .arrow, .rectangle, .ellipse, .line,
@@ -36,12 +37,13 @@ final class InlineEditorToolbar: NSView {
     ]
 
     static let barHeight: CGFloat = 36
-    static let barWidth: CGFloat = 620
+    static let barWidth: CGFloat = 420
 
     override init(frame frameRect: NSRect) {
         let size = NSSize(width: Self.barWidth, height: Self.barHeight)
         super.init(frame: NSRect(origin: frameRect.origin, size: size))
         setupUI()
+        resizeToFitContent()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -70,6 +72,7 @@ final class InlineEditorToolbar: NSView {
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
+        contentStack = stack
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
@@ -121,6 +124,13 @@ final class InlineEditorToolbar: NSView {
         stack.addArrangedSubview(createIconButton(icon: "checkmark", action: #selector(confirmClicked), tooltip: "完成"))
 
         updateToolButtons()
+    }
+
+    private func resizeToFitContent() {
+        layoutSubtreeIfNeeded()
+        let contentWidth = contentStack?.fittingSize.width ?? Self.barWidth
+        let targetWidth = max(360, contentWidth + 16)
+        setFrameSize(NSSize(width: targetWidth, height: Self.barHeight))
     }
 
     // MARK: - Button creation
