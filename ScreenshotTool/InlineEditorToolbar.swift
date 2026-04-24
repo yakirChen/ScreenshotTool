@@ -46,7 +46,7 @@ final class InlineEditorToolbar: NSView {
         .text, .pen, .highlight, .blur, .number, .ocr
     ]
 
-    static let barHeight: CGFloat = 36
+    static let barHeight: CGFloat = 42
     static let barWidth: CGFloat = 420
 
     override init(frame frameRect: NSRect) {
@@ -66,19 +66,21 @@ final class InlineEditorToolbar: NSView {
         visual.blendingMode = .behindWindow
         visual.state = .active
         visual.wantsLayer = true
-        visual.layer?.cornerRadius = 10
+        visual.layer?.cornerRadius = 12
         visual.layer?.masksToBounds = true
         visual.autoresizingMask = [.width, .height]
         addSubview(visual)
 
         layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.2
-        layer?.shadowRadius = 8
-        layer?.shadowOffset = CGSize(width: 0, height: -2)
+        layer?.shadowOpacity = 0.22
+        layer?.shadowRadius = 10
+        layer?.shadowOffset = CGSize(width: 0, height: -3)
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
 
         let stack = NSStackView()
         stack.orientation = .horizontal
-        stack.spacing = 1
+        stack.spacing = 4
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
@@ -159,9 +161,9 @@ final class InlineEditorToolbar: NSView {
             createIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
 
         stack.addArrangedSubview(createDivider())
-        stack.addArrangedSubview(createIconButton(icon: "doc.on.doc", action: #selector(copyClicked), tooltip: "复制"))
-        stack.addArrangedSubview(createIconButton(icon: "pin", action: #selector(pinClicked), tooltip: "Pin"))
-        stack.addArrangedSubview(createIconButton(icon: "checkmark", action: #selector(confirmClicked), tooltip: "完成"))
+        stack.addArrangedSubview(createActionButton(title: "复制", icon: "doc.on.doc", action: #selector(copyClicked)))
+        stack.addArrangedSubview(createActionButton(title: "Pin", icon: "pin", action: #selector(pinClicked)))
+        stack.addArrangedSubview(createActionButton(title: "完成", icon: "checkmark", action: #selector(confirmClicked), accent: true))
 
         updateToolButtons()
     }
@@ -197,8 +199,8 @@ final class InlineEditorToolbar: NSView {
 
     private func createIconButton(icon: String, action: Selector, tooltip: String) -> NSButton {
         let btn = NSButton(frame: .zero)
-        btn.bezelStyle = .recessed
-        btn.isBordered = false
+        btn.bezelStyle = .texturedRounded
+        btn.isBordered = true
         btn.image = NSImage(systemSymbolName: icon, accessibilityDescription: tooltip)?
             .withSymbolConfiguration(.init(pointSize: 11, weight: .regular))
         btn.contentTintColor = .secondaryLabelColor
@@ -206,18 +208,46 @@ final class InlineEditorToolbar: NSView {
         btn.target = self
         btn.action = action
         btn.translatesAutoresizingMaskIntoConstraints = false
-        btn.widthAnchor.constraint(equalToConstant: 24).isActive = true
-        btn.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        btn.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        btn.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        btn.wantsLayer = true
+        btn.layer?.cornerRadius = 6
         return btn
+    }
+
+    private func createActionButton(
+        title: String,
+        icon: String,
+        action: Selector,
+        accent: Bool = false
+    ) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
+        button.imagePosition = .imageLeading
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        button.font = .systemFont(ofSize: 12, weight: .medium)
+        button.contentTintColor = accent ? .white : .labelColor
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        if accent {
+            button.wantsLayer = true
+            button.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+            button.layer?.cornerRadius = 6
+            button.layer?.borderWidth = 0
+            button.isBordered = false
+        }
+        return button
     }
 
     private func createDivider() -> NSView {
         let v = NSView()
         v.wantsLayer = true
-        v.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        v.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.7).cgColor
         v.translatesAutoresizingMaskIntoConstraints = false
         v.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        v.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        v.heightAnchor.constraint(equalToConstant: 16).isActive = true
         return v
     }
 
