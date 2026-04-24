@@ -191,6 +191,8 @@ final class CaptureControlBar: NSView {
                       isOn: prefs.showFloatingThumbnail)
         addToggleItem(to: menu, title: "显示鼠标指针", selector: #selector(toggleMouseCursor),
                       isOn: prefs.captureMouseCursor)
+        addToggleItem(to: menu, title: "窗口模式单击即捕捉", selector: #selector(toggleWindowSingleClickCapture),
+                      isOn: prefs.windowCaptureSingleClick)
         addToggleItem(to: menu, title: "截图后复制到剪贴板", selector: #selector(toggleClipboard),
                       isOn: prefs.copyToClipboardOnCapture)
         addToggleItem(to: menu, title: "保存到历史", selector: #selector(toggleHistory),
@@ -259,6 +261,11 @@ final class CaptureControlBar: NSView {
 
     @objc private func toggleMouseCursor() {
         PreferencesManager.shared.captureMouseCursor.toggle()
+        delegate?.controlBarDidChangeOptions(self)
+    }
+
+    @objc private func toggleWindowSingleClickCapture() {
+        PreferencesManager.shared.windowCaptureSingleClick.toggle()
         delegate?.controlBarDidChangeOptions(self)
     }
 

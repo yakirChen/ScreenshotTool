@@ -12,6 +12,7 @@ class ScrollCaptureManager {
     private var overlayWindow: NSWindow?
     private var statusLabel: NSTextField?
     private var isCapturing = false
+    private var isFrameCaptureInProgress = false
     private var captureTimer: Timer?
     private var eventMonitor: Any?
 
@@ -75,6 +76,7 @@ class ScrollCaptureManager {
         lastCapturedImage = nil
         captureCount = 0
         isCapturing = true
+        isFrameCaptureInProgress = false
 
         showOverlay()
         startCaptureLoop()
@@ -157,8 +159,11 @@ class ScrollCaptureManager {
 
     private func captureSelectedArea() {
         guard isCapturing, let screen = captureScreen else { return }
+        guard !isFrameCaptureInProgress else { return }
+        isFrameCaptureInProgress = true
 
         Task { @MainActor in
+            defer { self.isFrameCaptureInProgress = false }
             do {
                 let image = try await ScreenCaptureService.shared.captureArea(
                     rect: captureRect, screen: screen
@@ -284,6 +289,7 @@ class ScrollCaptureManager {
         stitchedImage = nil
         lastCapturedImage = nil
         captureCount = 0
+        isFrameCaptureInProgress = false
         captureRect = .zero
         captureScreen = nil
     }

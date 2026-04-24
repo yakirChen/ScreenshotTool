@@ -425,6 +425,9 @@ class SelectionOverlayView: NSView {
             hasSelection = true
             detectedWindowFrame = nil
             needsDisplay = true
+            if captureMode == .window, PreferencesManager.shared.windowCaptureSingleClick {
+                confirmSelection()
+            }
             return
         }
 
@@ -512,10 +515,13 @@ class SelectionOverlayView: NSView {
                     }
                 }
                 needsDisplay = true
-            } else if !hasSelection {
-                selectionRect = bounds
-                hasSelection = true
-                confirmSelection()
+            } else if showControlBar {
+                // 控制面板模式下，Space 不触发立即截图，避免误触。
+                // 窗口模式下可用于进入/维持窗口高亮。
+                if captureMode == .window && !detectWindows {
+                    detectWindows = true
+                    needsDisplay = true
+                }
             }
         case 123: nudgeSelection(dx: shift ? -10 : -1, dy: 0)
         case 124: nudgeSelection(dx: shift ? 10 : 1, dy: 0)
@@ -643,8 +649,12 @@ class SelectionOverlayView: NSView {
 
     private func nudgeSelection(dx: CGFloat, dy: CGFloat) {
         guard hasSelection else { return }
-        selectionRect.origin.x += dx
-        selectionRect.origin.y += dy
+        let rect = normalizedRect(selectionRect)
+        let maxX = max(0, bounds.width - rect.width)
+        let maxY = max(0, bounds.height - rect.height)
+        let newX = min(max(0, rect.origin.x + dx), maxX)
+        let newY = min(max(0, rect.origin.y + dy), maxY)
+        selectionRect = CGRect(x: newX, y: newY, width: rect.width, height: rect.height)
         needsDisplay = true
     }
 }

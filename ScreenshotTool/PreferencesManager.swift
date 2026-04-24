@@ -30,6 +30,7 @@ class PreferencesManager {
         case lastSelectionRect = "lastSelectionRect"
         case showFloatingThumbnail = "showFloatingThumbnail"
         case captureTimerSeconds = "captureTimerSeconds"
+        case windowCaptureSingleClick = "windowCaptureSingleClick"
     }
 
     // MARK: - Properties
@@ -98,6 +99,12 @@ class PreferencesManager {
     var captureTimerSeconds: Int {
         get { defaults.integer(forKey: Key.captureTimerSeconds.rawValue) }
         set { defaults.set(newValue, forKey: Key.captureTimerSeconds.rawValue) }
+    }
+
+    /// 窗口截图模式下，是否单击窗口即立即捕捉
+    var windowCaptureSingleClick: Bool {
+        get { defaults.object(forKey: Key.windowCaptureSingleClick.rawValue) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.windowCaptureSingleClick.rawValue) }
     }
 
     /// 上次选区（屏幕局部坐标）。仅用于同一屏幕同尺寸恢复，超出边界时会被调用方忽略。
