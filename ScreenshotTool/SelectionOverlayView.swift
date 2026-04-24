@@ -190,8 +190,8 @@ class SelectionOverlayView: NSView {
 
     private func effectiveControlBarSize() -> NSSize {
         let preferred = CaptureControlBar.preferredSize()
-        let maxWidth = max(280, bounds.width - 24)
-        return NSSize(width: min(preferred.width, maxWidth), height: preferred.height)
+        let availableWidth = max(0, bounds.width - 24)
+        return NSSize(width: min(preferred.width, availableWidth), height: preferred.height)
     }
 
     // MARK: - 绘制
