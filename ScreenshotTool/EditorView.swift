@@ -8,10 +8,12 @@
 import Cocoa
 
 private final class TightTextFieldCell: NSTextFieldCell {
-    private let inset = CGSize(width: 2, height: 1)
+    private let inset = CGSize(width: 2, height: 0)
 
     override func drawingRect(forBounds rect: NSRect) -> NSRect {
-        super.drawingRect(forBounds: rect).insetBy(dx: inset.width, dy: inset.height)
+        super.drawingRect(forBounds: rect)
+            .insetBy(dx: inset.width, dy: inset.height)
+            .offsetBy(dx: 0, dy: -1)
     }
 }
 
@@ -427,7 +429,7 @@ class EditorView: NSView {
         annotation.fontSize = currentFontSize
         editingAnnotation = annotation
 
-        let initialHeight = max(24, currentFontSize + 8)
+        let initialHeight = max(22, currentFontSize + 6)
         let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: initialHeight))
         tf.cell = TightTextFieldCell(textCell: "")
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .medium)
@@ -489,7 +491,7 @@ class EditorView: NSView {
         let targetWidth = max(120, min(360, textSize.width + 24))
         let font = tf.font ?? NSFont.systemFont(ofSize: currentFontSize, weight: .medium)
         let lineHeight = font.ascender - font.descender + font.leading
-        let targetHeight = max(24, lineHeight + 8)
+        let targetHeight = max(22, lineHeight + 6)
         tf.frame.size = CGSize(width: targetWidth, height: targetHeight)
     }
 
