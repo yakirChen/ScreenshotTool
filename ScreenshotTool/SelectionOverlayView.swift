@@ -497,10 +497,12 @@ class SelectionOverlayView: NSView {
         stack.addArrangedSubview(exportButton(title: "Pin", action: #selector(exportPin)))
         stack.addArrangedSubview(exportButton(title: "取消", action: #selector(cancelAnnotation)))
 
-        stack.sizeToFit()
-        let x = max(12, min(annotationRect.midX - 130, bounds.width - 260 - 12))
-        let y = max(12, annotationRect.minY - 54)
-        stack.frame = CGRect(x: x, y: y, width: 260, height: 36)
+        let stackSize = stack.fittingSize
+        let barWidth = max(220, stackSize.width)
+        let barHeight = max(36, stackSize.height)
+        let x = max(12, min(annotationRect.midX - barWidth / 2, bounds.width - barWidth - 12))
+        let y = max(12, annotationRect.minY - (barHeight + 18))
+        stack.frame = CGRect(x: x, y: y, width: barWidth, height: barHeight)
         addSubview(stack)
         exportActionBar = stack
     }
