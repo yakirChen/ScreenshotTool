@@ -413,6 +413,15 @@ class EditorView: NSView {
         let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
             annotation.text = text
+            if let cell = tf.cell {
+                let textRect = cell.drawingRect(forBounds: tf.bounds)
+                annotation.startPoint = CGPoint(
+                    x: tf.frame.minX + textRect.minX,
+                    y: tf.frame.minY + textRect.minY
+                )
+            } else {
+                annotation.startPoint = tf.frame.origin
+            }
             annotations.append(annotation)
         }
 
