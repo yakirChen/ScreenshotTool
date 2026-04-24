@@ -89,11 +89,11 @@ class SelectionOverlayView: NSView {
 
     private func setupControlBar() {
         guard showControlBar else { return }
-        let bar = CaptureControlBar(frame: NSRect(origin: .zero, size: CaptureControlBar.preferredSize()))
+        let bar = CaptureControlBar(frame: NSRect(origin: .zero, size: effectiveControlBarSize()))
         bar.delegate = self
         bar.mode = captureMode
         bar.translatesAutoresizingMaskIntoConstraints = true
-        let size = CaptureControlBar.preferredSize()
+        let size = effectiveControlBarSize()
         bar.frame = NSRect(
             x: (bounds.width - size.width) / 2,
             y: 40,
@@ -151,7 +151,10 @@ class SelectionOverlayView: NSView {
     private func updateControlBarPosition() {
         guard showControlBar, let bar = controlBar else { return }
 
-        let size = CaptureControlBar.preferredSize()
+        let size = effectiveControlBarSize()
+        if bar.frame.size != size {
+            bar.frame.size = size
+        }
         let margin: CGFloat = 12
 
         if (hasSelection || isSelecting) && captureMode != .fullScreen {
@@ -183,6 +186,12 @@ class SelectionOverlayView: NSView {
                 height: size.height
             )
         }
+    }
+
+    private func effectiveControlBarSize() -> NSSize {
+        let preferred = CaptureControlBar.preferredSize()
+        let maxWidth = max(280, bounds.width - 24)
+        return NSSize(width: min(preferred.width, maxWidth), height: preferred.height)
     }
 
     // MARK: - 绘制

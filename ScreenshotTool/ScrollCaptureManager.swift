@@ -254,7 +254,17 @@ class ScrollCaptureManager {
         if PreferencesManager.shared.openEditorAfterCapture {
             EditorWindowController.show(with: result)
         } else if PreferencesManager.shared.showFloatingThumbnail {
-            let sourceRect = captureScreen?.frame ?? NSScreen.main?.frame ?? .zero
+            let sourceRect: CGRect
+            if let screen = captureScreen, captureRect.width > 0, captureRect.height > 0 {
+                sourceRect = CGRect(
+                    x: screen.frame.origin.x + captureRect.origin.x,
+                    y: screen.frame.origin.y + captureRect.origin.y,
+                    width: captureRect.width,
+                    height: captureRect.height
+                )
+            } else {
+                sourceRect = captureScreen?.frame ?? NSScreen.main?.frame ?? .zero
+            }
             FloatingThumbnail.show(image: result, sourceRect: sourceRect)
         }
 
