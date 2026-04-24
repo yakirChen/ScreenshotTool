@@ -372,13 +372,7 @@ class SelectionOverlayView: NSView {
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
         case 53:
-            if renderModel.hasSelection && renderModel.captureMode != .fullScreen {
-                session.clearSelection()
-                renderModel = session.renderModel(for: screen)
-                needsDisplay = true
-            } else {
-                onCancel?()
-            }
+            onCancel?()
         case 36, 76:
             if renderModel.captureMode == .fullScreen {
                 session.setMode(.fullScreen, on: screen)
