@@ -92,23 +92,27 @@ final class InlineEditorToolbar: NSView {
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
 
-        // Cancel
-        let cancelBtn = createFlatIconButton(
-            icon: "xmark", action: #selector(cancelClicked), tooltip: "取消 ESC")
-        stack.addArrangedSubview(cancelBtn)
+        stack.spacing = 8
 
-        stack.addArrangedSubview(createDivider())
+        // Group 1: command
+        let commandGroup = createGroupStack()
+        commandGroup.addArrangedSubview(createFlatIconButton(icon: "xmark", action: #selector(cancelClicked), tooltip: "取消 ESC"))
+        commandGroup.addArrangedSubview(createDivider())
+        commandGroup.addArrangedSubview(createFlatIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
+        commandGroup.addArrangedSubview(createFlatIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
+        stack.addArrangedSubview(wrapGroup(commandGroup))
 
-        // Tool buttons
+        // Group 2: tools
+        let toolsGroup = createGroupStack()
         for tool in tools {
             let btn = createToolButton(tool: tool)
             toolButtons[tool] = btn
-            stack.addArrangedSubview(btn)
+            toolsGroup.addArrangedSubview(btn)
         }
+        stack.addArrangedSubview(wrapGroup(toolsGroup))
 
-        stack.addArrangedSubview(createDivider())
-
-        // Color
+        // Group 3: style
+        let styleGroup = createGroupStack()
         let cw = NSColorWell(frame: NSRect(x: 0, y: 0, width: 18, height: 18))
         cw.color = currentColor
         cw.target = self
@@ -120,9 +124,8 @@ final class InlineEditorToolbar: NSView {
         cw.widthAnchor.constraint(equalToConstant: 18).isActive = true
         cw.heightAnchor.constraint(equalToConstant: 18).isActive = true
         colorWell = cw
-        stack.addArrangedSubview(cw)
-
-        stack.addArrangedSubview(createDivider())
+        styleGroup.addArrangedSubview(cw)
+        styleGroup.addArrangedSubview(createDivider())
 
         let widthPopup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 64, height: 22), pullsDown: false)
         widthPopup.addItems(withTitles: [1, 2, 3, 4, 6, 8, 10, 12].map { widthOptionTitle(CGFloat($0)) })
@@ -132,12 +135,10 @@ final class InlineEditorToolbar: NSView {
         widthPopup.action = #selector(lineWidthChanged(_:))
         widthPopup.toolTip = "线宽"
         widthPopup.translatesAutoresizingMaskIntoConstraints = false
-        widthPopup.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        widthPopup.widthAnchor.constraint(equalToConstant: 58).isActive = true
         lineWidthPopup = widthPopup
-        stack.addArrangedSubview(makeTagLabel("粗"))
-        stack.addArrangedSubview(widthPopup)
-
-        stack.addArrangedSubview(createDivider())
+        styleGroup.addArrangedSubview(widthPopup)
+        styleGroup.addArrangedSubview(createDivider())
 
         let textPopup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 72, height: 22), pullsDown: false)
         textPopup.addItems(withTitles: [12, 14, 16, 18, 20, 24, 28, 32, 40, 48].map { fontOptionTitle(CGFloat($0)) })
@@ -147,23 +148,17 @@ final class InlineEditorToolbar: NSView {
         textPopup.action = #selector(fontSizeChanged(_:))
         textPopup.toolTip = "字体大小"
         textPopup.translatesAutoresizingMaskIntoConstraints = false
-        textPopup.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        textPopup.widthAnchor.constraint(equalToConstant: 66).isActive = true
         fontSizePopup = textPopup
-        stack.addArrangedSubview(makeTagLabel("字"))
-        stack.addArrangedSubview(textPopup)
+        styleGroup.addArrangedSubview(textPopup)
+        stack.addArrangedSubview(wrapGroup(styleGroup))
 
-        stack.addArrangedSubview(createDivider())
-
-        // Undo / Redo
-        stack.addArrangedSubview(
-            createFlatIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
-        stack.addArrangedSubview(
-            createFlatIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
-
-        stack.addArrangedSubview(createDivider())
-        stack.addArrangedSubview(createActionButton(title: "复制", icon: "doc.on.doc", action: #selector(copyClicked)))
-        stack.addArrangedSubview(createActionButton(title: "Pin", icon: "pin", action: #selector(pinClicked)))
-        stack.addArrangedSubview(createActionButton(title: "完成", icon: "checkmark", action: #selector(confirmClicked), accent: true))
+        // Group 4: export
+        let exportGroup = createGroupStack()
+        exportGroup.addArrangedSubview(createActionButton(title: "复制", icon: "doc.on.doc", action: #selector(copyClicked)))
+        exportGroup.addArrangedSubview(createActionButton(title: "Pin", icon: "pin", action: #selector(pinClicked)))
+        exportGroup.addArrangedSubview(createActionButton(title: "完成", icon: "checkmark", action: #selector(confirmClicked), accent: true))
+        stack.addArrangedSubview(wrapGroup(exportGroup))
 
         updateToolButtons()
     }
@@ -242,6 +237,34 @@ final class InlineEditorToolbar: NSView {
         return button
     }
 
+    private func createGroupStack() -> NSStackView {
+        let group = NSStackView()
+        group.orientation = .horizontal
+        group.spacing = 2
+        group.alignment = .centerY
+        return group
+    }
+
+    private func wrapGroup(_ stack: NSStackView) -> NSView {
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        container.layer?.cornerRadius = 6
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -6),
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
+        ])
+        return container
+    }
+
     private func createDivider() -> NSView {
         let v = NSView()
         v.wantsLayer = true
@@ -250,13 +273,6 @@ final class InlineEditorToolbar: NSView {
         v.widthAnchor.constraint(equalToConstant: 1).isActive = true
         v.heightAnchor.constraint(equalToConstant: 14).isActive = true
         return v
-    }
-
-    private func makeTagLabel(_ title: String) -> NSTextField {
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 10, weight: .regular)
-        label.textColor = .secondaryLabelColor
-        return label
     }
 
     // MARK: - Update
