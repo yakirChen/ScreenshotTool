@@ -16,6 +16,8 @@ class HistoryWindowController: NSWindowController {
     private var previewPanel: NSPanel?
     private var previewImageView: NSImageView?
     private var hoveredRow: Int = -1
+    private var hoveredImage: NSImage?
+    private var hoveredTitle: String = ""
 
     static func show() {
         if let existing = current {
@@ -87,6 +89,7 @@ class HistoryWindowController: NSWindowController {
         table.allowsEmptySelection = true
         table.delegate = self
         table.dataSource = self
+        table.doubleAction = #selector(openSelectedHistoryItem)
         table.hoverHandler = { [weak self] row, windowPoint in
             self?.handleHover(row: row, windowPoint: windowPoint)
         }
@@ -129,7 +132,13 @@ class HistoryWindowController: NSWindowController {
             hidePreview()
             return
         }
-        if hoveredRow == row { return }
+        let screenPoint = window?.convertPoint(toScreen: windowPoint) ?? windowPoint
+        if hoveredRow == row {
+            if let hoveredImage {
+                showPreview(image: hoveredImage, near: screenPoint, title: hoveredTitle)
+            }
+            return
+        }
 
         hoveredRow = row
         let entry = HistoryManager.shared.items[row]
@@ -137,7 +146,8 @@ class HistoryWindowController: NSWindowController {
             hidePreview()
             return
         }
-        let screenPoint = window?.convertPoint(toScreen: windowPoint) ?? windowPoint
+        hoveredImage = image
+        hoveredTitle = entry.displayName
         showPreview(image: image, near: screenPoint, title: entry.displayName)
     }
 
@@ -171,7 +181,18 @@ class HistoryWindowController: NSWindowController {
     }
 
     private func hidePreview() {
+        hoveredImage = nil
+        hoveredTitle = ""
         previewPanel?.orderOut(nil)
+    }
+
+    @objc private func openSelectedHistoryItem() {
+        let row = tableView.selectedRow
+        guard row >= 0, row < HistoryManager.shared.items.count else { return }
+        let entry = HistoryManager.shared.items[row]
+        if let image = HistoryManager.shared.getImage(for: entry) {
+            EditorWindowController.show(with: image)
+        }
     }
 
     private func createPreviewPanel() -> NSPanel {
@@ -238,14 +259,7 @@ extension HistoryWindowController: NSTableViewDataSource, NSTableViewDelegate {
         return view
     }
 
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        let row = tableView.selectedRow
-        guard row >= 0, row < HistoryManager.shared.items.count else { return }
-        let entry = HistoryManager.shared.items[row]
-        if let image = HistoryManager.shared.getImage(for: entry) {
-            EditorWindowController.show(with: image)
-        }
-    }
+    func tableViewSelectionDidChange(_ notification: Notification) {}
 }
 
 final class HistoryRowView: NSTableCellView {
@@ -254,6 +268,8 @@ final class HistoryRowView: NSTableCellView {
     private let sizeLabel = NSTextField(labelWithString: "")
     private let deleteButton = NSButton()
     var deleteHandler: (() -> Void)?
+    private var tracking: NSTrackingArea?
+    private var isHovering = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -267,6 +283,8 @@ final class HistoryRowView: NSTableCellView {
 
     private func setup() {
         wantsLayer = true
+        layer?.cornerRadius = 6
+        updateBackground()
 
         thumbnailView.frame = CGRect(x: 10, y: 5, width: 52, height: 32)
         thumbnailView.imageScaling = .scaleProportionallyUpOrDown
@@ -303,6 +321,31 @@ final class HistoryRowView: NSTableCellView {
         deleteButton.frame.origin.x = bounds.width - 34
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking {
+            removeTrackingArea(tracking)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInActiveApp, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        updateBackground()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        updateBackground()
+    }
+
     func configure(with entry: HistoryManager.HistoryItem) {
         titleLabel.stringValue = entry.displayName
         sizeLabel.stringValue = "\(entry.width) × \(entry.height) · \(URL(fileURLWithPath: entry.filePath).lastPathComponent)"
@@ -317,6 +360,14 @@ final class HistoryRowView: NSTableCellView {
 
     @objc private func deleteClicked() {
         deleteHandler?()
+    }
+
+    private func updateBackground() {
+        if isHovering {
+            layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
+        } else {
+            layer?.backgroundColor = NSColor.clear.cgColor
+        }
     }
 }
 
