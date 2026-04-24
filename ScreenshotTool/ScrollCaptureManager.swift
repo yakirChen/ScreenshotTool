@@ -247,6 +247,7 @@ class ScrollCaptureManager {
             alert.messageText = "没有捕获到图片"
             alert.informativeText = "请在点击开始后滚动页面"
             alert.runModal()
+            cleanup()
             return
         }
 

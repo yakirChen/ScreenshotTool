@@ -64,8 +64,9 @@ class ScrollImageStitcher {
         }
         
         // 预计算 bottom 图顶部每行的"指纹"（行哈希）
-        let maxSearch = min(topH, botH) * 70 / 100
-        let searchRange = min(400, maxSearch)
+        let maxSearch = min(topH, botH) * 80 / 100
+        // 允许更大滚动步长，避免快速滚动时找不到重叠
+        let searchRange = min(1600, maxSearch)
         
         guard searchRange > 10 else {
             return OverlapMatch(overlapPx: 0, confidence: 0)
