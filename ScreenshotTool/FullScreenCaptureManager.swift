@@ -16,17 +16,25 @@ class FullScreenCaptureManager {
             do {
                 let image = try await ScreenCaptureService.shared.captureFullScreen()
 
-                // 复制到剪贴板
-                copyToClipboard(image: image)
+                let prefs = PreferencesManager.shared
 
-                // 打开编辑器
-                EditorWindowController.show(with: image)
+                if prefs.copyToClipboardOnCapture {
+                    copyToClipboard(image: image)
+                }
+                if prefs.saveToHistory {
+                    HistoryManager.shared.save(image: image)
+                }
+                if prefs.playSoundOnCapture {
+                    NSSound(named: "Tink")?.play()
+                }
 
-                // ✅ 保存到历史
-                HistoryManager.shared.save(image: image)
+                if let screen = NSScreen.main {
+                    CaptureAnimation.playFlash(in: screen.frame)
+                }
 
-                // 音效
-                NSSound(named: "Tink")?.play()
+                if prefs.showFloatingThumbnail, let screen = NSScreen.main {
+                    FloatingThumbnail.show(image: image, sourceRect: screen.frame)
+                }
 
             } catch {
                 showError(error.localizedDescription)

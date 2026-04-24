@@ -18,7 +18,7 @@ class ScrollImageStitcher {
     }
     
     /// 拼接两张图片，自动检测重叠
-    private static func stitchPair(top: NSImage, bottom: NSImage) -> NSImage {
+    static func stitchPair(top: NSImage, bottom: NSImage) -> NSImage {
         guard let topBitmap = getBitmap(from: top),
               let bottomBitmap = getBitmap(from: bottom) else {
             return simpleStitch(top: top, bottom: bottom)

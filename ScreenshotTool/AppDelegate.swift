@@ -8,15 +8,18 @@
 import Cocoa
 import ScreenCaptureKit
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem!
     private var hotkeyManager: HotkeyManager!
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationWillFinishLaunching(_ notification: Notification) {
         // 设置为 Agent 应用（只在菜单栏显示，不在 Dock 显示）
         NSApp.setActivationPolicy(.accessory)
+    }
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
         setupHotkeys()
         requestScreenCapturePermission()
@@ -34,21 +37,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
 
-        // 截图功能
+        // 截图功能（对齐 macOS 原生快捷键）
+        let fullItem = menu.addItem(
+            withTitle: "全屏截图", action: #selector(captureFullScreen), keyEquivalent: "3")
+        fullItem.keyEquivalentModifierMask = [.command, .shift]
+        fullItem.target = self
+
         let areaItem = menu.addItem(
             withTitle: "区域截图", action: #selector(captureArea), keyEquivalent: "4")
         areaItem.keyEquivalentModifierMask = [.command, .shift]
         areaItem.target = self
 
-        let fullItem = menu.addItem(
-            withTitle: "全屏截图", action: #selector(captureFullScreen), keyEquivalent: "5")
-        fullItem.keyEquivalentModifierMask = [.command, .shift]
-        fullItem.target = self
-
-        let windowItem = menu.addItem(
-            withTitle: "窗口截图", action: #selector(captureWindow), keyEquivalent: "6")
-        windowItem.keyEquivalentModifierMask = [.command, .shift]
-        windowItem.target = self
+        let panelItem = menu.addItem(
+            withTitle: "截图和录制选项", action: #selector(openCapturePanel), keyEquivalent: "5")
+        panelItem.keyEquivalentModifierMask = [.command, .shift]
+        panelItem.target = self
 
         let scrollItem = menu.addItem(
             withTitle: "滚动截图", action: #selector(scrollCapture), keyEquivalent: "8")
@@ -98,9 +101,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupHotkeys() {
         hotkeyManager = HotkeyManager()
 
+        // ⌘⇧3 即时全屏截图
+        hotkeyManager.register(keyCode: 0x14, modifiers: [.command, .shift]) { [weak self] in
+            self?.captureFullScreen()
+        }
+
+        // ⌘⇧4 轻量十字光标选区
         hotkeyManager.register(keyCode: 0x15, modifiers: [.command, .shift]) { [weak self] in
-            // ⌘⇧4 -> keyCode 0x15 = "4" (实际使用时可能需要调整)
             self?.captureArea()
+        }
+
+        // ⌘⇧5 统一控制面板
+        hotkeyManager.register(keyCode: 0x17, modifiers: [.command, .shift]) { [weak self] in
+            self?.openCapturePanel()
+        }
+
+        // ⌘⇧7 取色器
+        hotkeyManager.register(keyCode: 0x1A, modifiers: [.command, .shift]) { [weak self] in
+            self?.startColorPicker()
         }
     }
 
@@ -127,9 +145,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Actions
     @objc func captureArea() {
-        // 延迟一点点，让菜单消失
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            SelectionCaptureManager.shared.startCapture()
+            SelectionCaptureManager.shared.startCapture(lightweight: true)
         }
     }
 
@@ -139,9 +156,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func captureWindow() {
+    @objc func openCapturePanel() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            SelectionCaptureManager.shared.startCapture(detectWindows: true)
+            SelectionCaptureManager.shared.startCapture(lightweight: false)
         }
     }
 

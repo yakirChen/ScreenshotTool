@@ -9,7 +9,7 @@ import Cocoa
 
 class SelectionOverlayWindow: NSWindow {
 
-    var onComplete: ((CGRect, NSScreen) -> Void)?
+    var onComplete: ((CGRect, NSScreen, NSImage?) -> Void)?
     var onCancel: (() -> Void)?
 
     let associatedScreen: NSScreen
@@ -17,7 +17,7 @@ class SelectionOverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    init(screen: NSScreen, detectWindows: Bool = false) {
+    init(screen: NSScreen, showControlBar: Bool = true, detectWindows: Bool = false, initialMode: CaptureMode = .area) {
         self.associatedScreen = screen
 
         super.init(
@@ -44,12 +44,14 @@ class SelectionOverlayWindow: NSWindow {
         let selectionView = SelectionOverlayView(frame: viewFrame)
         selectionView.detectWindows = detectWindows
         selectionView.associatedScreen = screen
+        selectionView.captureMode = initialMode
+        selectionView.showControlBar = showControlBar
         selectionView.autoresizingMask = [.width, .height]
         self.contentView = selectionView
 
-        selectionView.onComplete = { [weak self] rect in
+        selectionView.onComplete = { [weak self] rect, image in
             guard let self = self else { return }
-            self.onComplete?(rect, self.associatedScreen)
+            self.onComplete?(rect, self.associatedScreen, image)
         }
 
         selectionView.onCancel = { [weak self] in

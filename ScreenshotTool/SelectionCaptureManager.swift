@@ -13,7 +13,8 @@ class SelectionCaptureManager {
 
     private var overlayWindows: [SelectionOverlayWindow] = []
 
-    func startCapture(detectWindows: Bool = false) {
+    /// - Parameter lightweight: true = ⌘⇧4 风格（无底部控制栏，Space 切窗口），false = ⌘⇧5 风格（带控制面板）
+    func startCapture(lightweight: Bool = false) {
         Task { @MainActor in
             let hasPermission = await ScreenCaptureService.shared.checkPermission()
             if !hasPermission {
@@ -55,14 +56,17 @@ class SelectionCaptureManager {
                     screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")]
                     as? CGDirectDisplayID ?? 0
 
-                let window = SelectionOverlayWindow(screen: screen, detectWindows: detectWindows)
+                let window = SelectionOverlayWindow(
+                    screen: screen,
+                    showControlBar: !lightweight
+                )
 
                 if let view = window.contentView as? SelectionOverlayView {
                     view.frozenBackground = frozenImages[displayID]
                 }
 
-                window.onComplete = { [weak self] rect, captureScreen in
-                    self?.finishCapture(selectionRect: rect, screen: captureScreen)
+                window.onComplete = { [weak self] rect, captureScreen, editedImage in
+                    self?.finishCapture(selectionRect: rect, screen: captureScreen, editedImage: editedImage)
                 }
                 window.onCancel = { [weak self] in
                     self?.cancelCapture()
@@ -92,7 +96,7 @@ class SelectionCaptureManager {
         }
     }
 
-    private func finishCapture(selectionRect: CGRect, screen: NSScreen) {
+    private func finishCapture(selectionRect: CGRect, screen: NSScreen, editedImage: NSImage?) {
         closeOverlays()
 
         guard selectionRect.width > 1 && selectionRect.height > 1 else { return }
@@ -103,50 +107,35 @@ class SelectionCaptureManager {
             "  screen: \(screen.localizedName) frame=\(screen.frame) scale=\(screen.backingScaleFactor)"
         )
 
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 200_000_000)
+        guard let image = editedImage else { return }
 
-            do {
-                let image = try await ScreenCaptureService.shared.captureArea(
-                    rect: selectionRect,
-                    screen: screen
-                )
+        print("✅ 截图成功: \(image.size)")
 
-                print("✅ 截图成功: \(image.size)")
+        // 闪屏动画
+        CaptureAnimation.playFlash(in: screen.frame)
 
-                // 动画 - 用全局坐标
-                let globalRect = CGRect(
-                    x: screen.frame.origin.x + selectionRect.origin.x,
-                    y: screen.frame.origin.y + selectionRect.origin.y,
-                    width: selectionRect.width,
-                    height: selectionRect.height
-                )
-                CaptureAnimation.playFlash(in: screen.frame)
-                CaptureAnimation.playThumbnailAnimation(image: image, from: globalRect)
+        // 自动动作：按偏好执行
+        let prefs = PreferencesManager.shared
+        if prefs.copyToClipboardOnCapture {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects([image])
+        }
+        if prefs.saveToHistory {
+            HistoryManager.shared.save(image: image)
+        }
+        if prefs.playSoundOnCapture {
+            NSSound(named: "Tink")?.play()
+        }
 
-                if PreferencesManager.shared.copyToClipboardOnCapture {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.writeObjects([image])
-                }
-
-                EditorWindowController.show(with: image)
-
-                if PreferencesManager.shared.saveToHistory {
-                    HistoryManager.shared.save(image: image)
-                }
-
-                if PreferencesManager.shared.playSoundOnCapture {
-                    NSSound(named: "Tink")?.play()
-                }
-
-            } catch {
-                print("❌ 截图失败: \(error)")
-                let alert = NSAlert()
-                alert.messageText = "截图失败"
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                alert.runModal()
-            }
+        // 右下角浮动缩略图（用户点击/右键进入下一步）
+        if prefs.showFloatingThumbnail {
+            let globalRect = CGRect(
+                x: screen.frame.origin.x + selectionRect.origin.x,
+                y: screen.frame.origin.y + selectionRect.origin.y,
+                width: selectionRect.width,
+                height: selectionRect.height
+            )
+            FloatingThumbnail.show(image: image, sourceRect: globalRect)
         }
     }
 

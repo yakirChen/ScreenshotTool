@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/yakir/Developer/think/ScreenshotTool -name \"*.swift\" -exec wc -l {} \\\\;)",
+      "Bash(grep -n \"print\\\\|NSLog\" /Users/yakir/Developer/think/ScreenshotTool/ScreenshotTool/*.swift)",
+      "Bash(grep:*)",
+      "Bash(xcodebuild -scheme ScreenshotTool -configuration Debug build)"
+    ]
+  }
+}

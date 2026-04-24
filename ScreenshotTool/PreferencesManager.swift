@@ -26,6 +26,10 @@ class PreferencesManager {
         case saveToHistory = "saveToHistory"
         case maxHistoryCount = "maxHistoryCount"
         case captureMouseCursor = "captureMouseCursor"
+        case rememberLastSelection = "rememberLastSelection"
+        case lastSelectionRect = "lastSelectionRect"
+        case showFloatingThumbnail = "showFloatingThumbnail"
+        case captureTimerSeconds = "captureTimerSeconds"
     }
 
     // MARK: - Properties
@@ -78,6 +82,46 @@ class PreferencesManager {
             return v > 0 ? v : 50
         }
         set { defaults.set(newValue, forKey: Key.maxHistoryCount.rawValue) }
+    }
+
+    var rememberLastSelection: Bool {
+        get { defaults.object(forKey: Key.rememberLastSelection.rawValue) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.rememberLastSelection.rawValue) }
+    }
+
+    var showFloatingThumbnail: Bool {
+        get { defaults.object(forKey: Key.showFloatingThumbnail.rawValue) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.showFloatingThumbnail.rawValue) }
+    }
+
+    /// 截图倒计时秒数：0 = 无，5、10 = 延迟秒数
+    var captureTimerSeconds: Int {
+        get { defaults.integer(forKey: Key.captureTimerSeconds.rawValue) }
+        set { defaults.set(newValue, forKey: Key.captureTimerSeconds.rawValue) }
+    }
+
+    /// 上次选区（屏幕局部坐标）。仅用于同一屏幕同尺寸恢复，超出边界时会被调用方忽略。
+    var lastSelectionRect: CGRect? {
+        get {
+            guard let data = defaults.data(forKey: Key.lastSelectionRect.rawValue),
+                  let dict = try? JSONDecoder().decode([String: CGFloat].self, from: data),
+                  let x = dict["x"], let y = dict["y"],
+                  let w = dict["w"], let h = dict["h"] else { return nil }
+            return CGRect(x: x, y: y, width: w, height: h)
+        }
+        set {
+            guard let rect = newValue else {
+                defaults.removeObject(forKey: Key.lastSelectionRect.rawValue)
+                return
+            }
+            let dict: [String: CGFloat] = [
+                "x": rect.origin.x, "y": rect.origin.y,
+                "w": rect.width, "h": rect.height
+            ]
+            if let data = try? JSONEncoder().encode(dict) {
+                defaults.set(data, forKey: Key.lastSelectionRect.rawValue)
+            }
+        }
     }
 
     // MARK: - 默认标注颜色
