@@ -12,6 +12,7 @@ class SelectionCaptureManager {
     static let shared = SelectionCaptureManager()
 
     private var overlayWindows: [SelectionOverlayWindow] = []
+    private var captureSession: CaptureSession?
 
     /// - Parameter lightweight: true = ⌘⇧4 风格（无底部控制栏，Space 切窗口），false = ⌘⇧5 风格（带控制面板）
     func startCapture(lightweight: Bool = false) {
@@ -50,6 +51,10 @@ class SelectionCaptureManager {
                 }
             }
 
+            let session = CaptureSession()
+            session.showControlBar = !lightweight
+            captureSession = session
+
             // 为每个屏幕创建覆盖窗口
             for screen in NSScreen.screens {
                 let displayID =
@@ -58,6 +63,7 @@ class SelectionCaptureManager {
 
                 let window = SelectionOverlayWindow(
                     screen: screen,
+                    session: session,
                     showControlBar: !lightweight
                 )
 
@@ -148,5 +154,6 @@ class SelectionCaptureManager {
             window.orderOut(nil)
         }
         overlayWindows.removeAll()
+        captureSession = nil
     }
 }

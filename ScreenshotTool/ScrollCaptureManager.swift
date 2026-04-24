@@ -38,8 +38,10 @@ class ScrollCaptureManager {
     private func promptAreaSelection() {
         guard let screen = NSScreen.main else { return }
 
+        let session = CaptureSession()
         let window = SelectionOverlayWindow(
             screen: screen,
+            session: session,
             showControlBar: false
         )
 

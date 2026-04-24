@@ -17,7 +17,7 @@ class SelectionOverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    init(screen: NSScreen, showControlBar: Bool = true, detectWindows: Bool = false, initialMode: CaptureMode = .area) {
+    init(screen: NSScreen, session: CaptureSession, showControlBar: Bool = true, initialMode: CaptureMode = .area) {
         self.associatedScreen = screen
 
         super.init(
@@ -42,10 +42,10 @@ class SelectionOverlayWindow: NSWindow {
         // ✅ view 使用局部坐标 (0, 0, w, h)
         let viewFrame = CGRect(origin: .zero, size: screen.frame.size)
         let selectionView = SelectionOverlayView(frame: viewFrame)
-        selectionView.detectWindows = detectWindows
         selectionView.associatedScreen = screen
         selectionView.captureMode = initialMode
         selectionView.showControlBar = showControlBar
+        selectionView.session = session
         selectionView.autoresizingMask = [.width, .height]
         self.contentView = selectionView
 

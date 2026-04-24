@@ -15,46 +15,34 @@ class SelectionOverlayView: NSView {
 
     // MARK: - 屏幕/模式
     var associatedScreen: NSScreen?
-    var detectWindows: Bool = false {
-        didSet { if detectWindows != oldValue { needsDisplay = true } }
-    }
     var frozenBackground: NSImage?
     var showControlBar: Bool = true
     var captureMode: CaptureMode = .area {
-        didSet { handleModeChange() }
+        didSet {
+            guard let screen = associatedScreen else { return }
+            session?.setMode(captureMode, on: screen)
+            controlBar?.mode = captureMode
+            needsDisplay = true
+        }
     }
 
-    // MARK: - 选区状态
-    private var selectionRect: CGRect = .zero
-    private var startPoint: CGPoint = .zero
-    private var isSelecting = false
-    private var isDragging = false
-    private var hasSelection = false
-    private var dragOffset: CGPoint = .zero
-    private var dragStartSize: CGSize = .zero
-
-    private enum ResizeHandle {
-        case none
-        case topLeft, top, topRight
-        case left, right
-        case bottomLeft, bottom, bottomRight
+    var session: CaptureSession? {
+        didSet {
+            guard let screen = associatedScreen, let session else { return }
+            session.showControlBar = showControlBar
+            session.setMode(captureMode, on: screen)
+            renderModel = session.renderModel(for: screen)
+        }
     }
-    private var activeHandle: ResizeHandle = .none
-    private let handleSize: CGFloat = 8
 
-    private var mouseLocation: CGPoint = .zero
-
-    // MARK: - 窗口检测
-    private let windowDetector = WindowDetector()
-    private var detectedWindowFrame: CGRect?
-    private var windowsLoaded = false
+    private var renderModel = CaptureSession.RenderModel()
 
     // MARK: - 控制栏
     private var controlBar: CaptureControlBar?
 
     var overlayMessage: String {
         if !showControlBar {
-            return detectWindows
+            return renderModel.detectWindows
                 ? "点击窗口截图 · Space 返回选区 · ESC 取消"
                 : "拖动选择区域 · Space 切换窗口 · ESC 取消"
         }
@@ -77,13 +65,11 @@ class SelectionOverlayView: NSView {
         addTrackingArea(trackingArea)
 
         setupControlBar()
-        restoreLastSelectionIfNeeded()
 
-        if detectWindows {
-            Task {
-                await windowDetector.refresh(for: associatedScreen)
-                await MainActor.run { windowsLoaded = true; needsDisplay = true }
-            }
+        if let session, let screen = associatedScreen {
+            session.ensureWindowsLoaded(for: screen)
+            renderModel = session.renderModel(for: screen)
+            needsDisplay = true
         }
     }
 
@@ -105,41 +91,6 @@ class SelectionOverlayView: NSView {
         controlBar = bar
     }
 
-    private func restoreLastSelectionIfNeeded() {
-        guard PreferencesManager.shared.rememberLastSelection,
-              let rect = PreferencesManager.shared.lastSelectionRect,
-              bounds.contains(rect.origin),
-              bounds.contains(CGPoint(x: rect.maxX, y: rect.maxY)),
-              rect.width > 3, rect.height > 3 else { return }
-        selectionRect = rect
-        hasSelection = true
-        needsDisplay = true
-    }
-
-    private func handleModeChange() {
-        switch captureMode {
-        case .fullScreen:
-            selectionRect = bounds
-            hasSelection = true
-            detectWindows = false
-        case .window:
-            hasSelection = false
-            selectionRect = .zero
-            detectWindows = true
-            if !windowsLoaded {
-                Task {
-                    await windowDetector.refresh(for: associatedScreen)
-                    await MainActor.run { windowsLoaded = true; needsDisplay = true }
-                }
-            }
-        case .area:
-            hasSelection = false
-            selectionRect = .zero
-            detectWindows = false
-        }
-        needsDisplay = true
-    }
-
     // MARK: - 绘制
 
     override func draw(_ dirtyRect: NSRect) {
@@ -154,8 +105,8 @@ class SelectionOverlayView: NSView {
         context.setFillColor(NSColor.black.withAlphaComponent(0.35).cgColor)
         context.fill(bounds)
 
-        if hasSelection || isSelecting {
-            let rect = normalizedRect(selectionRect)
+        if renderModel.hasSelection || renderModel.isSelecting {
+            let rect = normalizedRect(renderModel.selectionRect)
             guard rect.width > 0, rect.height > 0 else {
                 drawWindowHighlightIfNeeded(context: context)
                 drawCrosshair(context: context)
@@ -179,7 +130,7 @@ class SelectionOverlayView: NSView {
 
             drawRuleOfThirds(context: context, rect: rect)
 
-            if hasSelection && captureMode != .fullScreen {
+            if renderModel.hasSelection && renderModel.captureMode != .fullScreen {
                 drawResizeHandles(context: context, rect: rect)
             }
             drawSizeInfo(context: context, rect: rect)
@@ -219,53 +170,27 @@ class SelectionOverlayView: NSView {
         bg.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
     }
 
-    // MARK: - 窗口高亮
-
     private func drawWindowHighlightIfNeeded(context: CGContext) {
-        guard detectWindows && !hasSelection && !isSelecting && windowsLoaded else { return }
+        guard renderModel.detectWindows, let rect = renderModel.detectedWindowFrame else { return }
 
-        if let window = windowDetector.detectWindow(at: mouseLocation) {
-            detectedWindowFrame = window.viewFrame
-            let rect = window.viewFrame
+        context.setBlendMode(.clear)
+        context.fill(rect)
+        context.setBlendMode(.normal)
 
-            context.setBlendMode(.clear)
-            context.fill(rect)
-            context.setBlendMode(.normal)
-
-            if let bg = frozenBackground {
-                context.saveGState()
-                context.clip(to: rect)
-                bg.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
-                context.restoreGState()
-            }
-
-            context.setStrokeColor(NSColor.systemBlue.withAlphaComponent(0.8).cgColor)
-            context.setLineWidth(2)
-            context.stroke(rect)
-
-            let labelText = window.appName.isEmpty ? "窗口" : window.appName
-            let attrs: [NSAttributedString.Key: Any] = [
-                .foregroundColor: NSColor.white,
-                .font: NSFont.systemFont(ofSize: 12, weight: .medium)
-            ]
-            let textSize = (labelText as NSString).size(withAttributes: attrs)
-            let labelRect = CGRect(
-                x: rect.origin.x, y: rect.maxY + 4,
-                width: textSize.width + 12, height: textSize.height + 6
-            )
-            context.setFillColor(NSColor.systemBlue.withAlphaComponent(0.85).cgColor)
-            context.addPath(CGPath(roundedRect: labelRect, cornerWidth: 4, cornerHeight: 4, transform: nil))
-            context.fillPath()
-            (labelText as NSString).draw(
-                at: CGPoint(x: labelRect.origin.x + 6, y: labelRect.origin.y + 3),
-                withAttributes: attrs
-            )
-        } else {
-            detectedWindowFrame = nil
+        if let bg = frozenBackground {
+            context.saveGState()
+            context.clip(to: rect)
+            bg.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
+            context.restoreGState()
         }
+
+        context.setStrokeColor(NSColor.systemBlue.withAlphaComponent(0.8).cgColor)
+        context.setLineWidth(2)
+        context.stroke(rect)
     }
 
     private func drawCrosshair(context: CGContext) {
+        let mouseLocation = renderModel.mouseLocation
         context.setStrokeColor(NSColor.white.withAlphaComponent(0.6).cgColor)
         context.setLineWidth(0.5)
         context.setLineDash(phase: 0, lengths: [5, 5])
@@ -326,8 +251,8 @@ class SelectionOverlayView: NSView {
         }
     }
 
-    private func getHandleRects(for rect: CGRect) -> [ResizeHandle: CGRect] {
-        let s = handleSize
+    private func getHandleRects(for rect: CGRect) -> [CaptureSession.ResizeHandle: CGRect] {
+        let s: CGFloat = 8
         let hs = s / 2
         return [
             .topLeft: CGRect(x: rect.minX - hs, y: rect.maxY - hs, width: s, height: s),
@@ -372,170 +297,116 @@ class SelectionOverlayView: NSView {
     // MARK: - 鼠标事件
 
     override func mouseMoved(with event: NSEvent) {
-        mouseLocation = convert(event.locationInWindow, from: nil)
+        guard let session, let screen = associatedScreen else { return }
+
+        let localPoint = convert(event.locationInWindow, from: nil)
+        let globalPoint = GeometryMapper.localToGlobal(localPoint, in: screen)
 
         if let myWindow = self.window as? SelectionOverlayWindow, !myWindow.isKeyWindow {
             myWindow.makeKeyAndOrderFront(nil)
             myWindow.makeFirstResponder(self)
         }
 
-        if hasSelection {
-            let rect = normalizedRect(selectionRect)
-            let handle = hitTestHandle(point: mouseLocation, rect: rect)
-            updateCursor(for: handle, point: mouseLocation, rect: rect)
-        }
+        renderModel = session.handleMouseMoved(globalPoint: globalPoint, on: screen)
         needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
 
-        // 点击底部控制栏由其自身处理，不进入选区逻辑
         if let bar = controlBar, bar.frame.contains(point) { return }
 
-        if captureMode == .fullScreen { return }
-
-        if event.clickCount == 2 && hasSelection {
+        if event.clickCount == 2 && renderModel.hasSelection {
             confirmSelection()
             return
         }
 
-        if hasSelection {
-            let rect = normalizedRect(selectionRect)
-            let handle = hitTestHandle(point: point, rect: rect)
-            if handle != .none {
-                activeHandle = handle
-                isDragging = true
-                isSelecting = false
-                startPoint = point
-                return
-            }
-            if rect.contains(point) {
-                isDragging = true
-                isSelecting = false
-                activeHandle = .none
-                dragOffset = CGPoint(x: point.x - rect.origin.x, y: point.y - rect.origin.y)
-                dragStartSize = rect.size
-                return
-            }
-        }
-
-        if detectWindows && !hasSelection, let windowFrame = detectedWindowFrame {
-            selectionRect = windowFrame
-            hasSelection = true
-            detectedWindowFrame = nil
-            needsDisplay = true
-            return
-        }
-
-        isDragging = false
-        activeHandle = .none
-        startPoint = point
-        selectionRect = CGRect(origin: point, size: .zero)
-        isSelecting = true
-        hasSelection = false
+        let globalPoint = GeometryMapper.localToGlobal(point, in: screen)
+        renderModel = session.handleMouseDown(globalPoint: globalPoint, clickCount: event.clickCount, on: screen)
+        needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
-        mouseLocation = point
-
-        if captureMode == .fullScreen { return }
-
-        if isSelecting && !isDragging {
-            selectionRect = CGRect(
-                x: min(startPoint.x, point.x),
-                y: min(startPoint.y, point.y),
-                width: abs(point.x - startPoint.x),
-                height: abs(point.y - startPoint.y)
-            )
-        } else if isDragging && !isSelecting {
-            if activeHandle != .none {
-                selectionRect = resizeRect(normalizedRect(selectionRect), handle: activeHandle, to: point)
-            } else {
-                var newX = point.x - dragOffset.x
-                var newY = point.y - dragOffset.y
-                newX = max(0, min(newX, bounds.width - dragStartSize.width))
-                newY = max(0, min(newY, bounds.height - dragStartSize.height))
-                selectionRect = CGRect(x: newX, y: newY, width: dragStartSize.width, height: dragStartSize.height)
-            }
-        }
+        let globalPoint = GeometryMapper.localToGlobal(point, in: screen)
+        renderModel = session.handleMouseDragged(globalPoint: globalPoint, on: screen)
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        if isSelecting {
-            isSelecting = false
-            let rect = normalizedRect(selectionRect)
-            if rect.width > 3 && rect.height > 3 {
-                hasSelection = true
-                selectionRect = rect
-            } else {
-                selectionRect = .zero
-                hasSelection = false
-            }
-        }
-        isDragging = false
-        activeHandle = .none
+        guard let session, let screen = associatedScreen else { return }
+        renderModel = session.handleMouseUp(on: screen)
         needsDisplay = true
     }
 
     // MARK: - 键盘
 
     override func keyDown(with event: NSEvent) {
+        guard let session, let screen = associatedScreen else { return }
+
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
-        case 53: // ESC
-            if hasSelection && captureMode != .fullScreen {
-                hasSelection = false
-                selectionRect = .zero
+        case 53:
+            if renderModel.hasSelection && renderModel.captureMode != .fullScreen {
+                session.clearSelection()
+                renderModel = session.renderModel(for: screen)
                 needsDisplay = true
             } else {
                 onCancel?()
             }
-        case 36, 76: // Return/Enter
-            if captureMode == .fullScreen {
-                selectionRect = bounds
-                hasSelection = true
+        case 36, 76:
+            if renderModel.captureMode == .fullScreen {
+                session.setMode(.fullScreen, on: screen)
+                renderModel = session.renderModel(for: screen)
                 confirmSelection()
-            } else if hasSelection {
+            } else if renderModel.hasSelection {
                 confirmSelection()
             }
-        case 49: // Space
-            if !showControlBar && !hasSelection {
-                // ⌘⇧4 + Space: 切换窗口高亮模式（对齐原生行为）
-                detectWindows.toggle()
-                if detectWindows && !windowsLoaded {
-                    Task {
-                        await windowDetector.refresh(for: associatedScreen)
-                        await MainActor.run { windowsLoaded = true; needsDisplay = true }
-                    }
-                }
+        case 49:
+            if !showControlBar && !renderModel.hasSelection {
+                session.detectWindows.toggle()
+                session.ensureWindowsLoaded(for: screen)
+                renderModel = session.renderModel(for: screen)
                 needsDisplay = true
-            } else if !hasSelection {
-                selectionRect = bounds
-                hasSelection = true
+            } else if !renderModel.hasSelection {
+                session.setMode(.fullScreen, on: screen)
+                renderModel = session.renderModel(for: screen)
                 confirmSelection()
             }
-        case 123: nudgeSelection(dx: shift ? -10 : -1, dy: 0)
-        case 124: nudgeSelection(dx: shift ? 10 : 1, dy: 0)
-        case 125: nudgeSelection(dx: 0, dy: shift ? -10 : -1)
-        case 126: nudgeSelection(dx: 0, dy: shift ? 10 : 1)
-        default: super.keyDown(with: event)
+        case 123:
+            session.nudgeSelection(dx: shift ? -10 : -1, dy: 0)
+            renderModel = session.renderModel(for: screen)
+            needsDisplay = true
+        case 124:
+            session.nudgeSelection(dx: shift ? 10 : 1, dy: 0)
+            renderModel = session.renderModel(for: screen)
+            needsDisplay = true
+        case 125:
+            session.nudgeSelection(dx: 0, dy: shift ? -10 : -1)
+            renderModel = session.renderModel(for: screen)
+            needsDisplay = true
+        case 126:
+            session.nudgeSelection(dx: 0, dy: shift ? 10 : 1)
+            renderModel = session.renderModel(for: screen)
+            needsDisplay = true
+        default:
+            super.keyDown(with: event)
         }
     }
 
     // MARK: - 辅助
 
     private func confirmSelection() {
-        let rect = normalizedRect(selectionRect)
+        guard let session, let screen = associatedScreen else { return }
+        let rect = session.normalizedSelectionRect(in: screen)
         guard rect.width > 1, rect.height > 1 else { return }
 
         if PreferencesManager.shared.rememberLastSelection && captureMode == .area {
             PreferencesManager.shared.lastSelectionRect = rect
         }
 
-        // 倒计时
         let seconds = PreferencesManager.shared.captureTimerSeconds
         if seconds > 0 {
             runCountdown(seconds: seconds) { [weak self] in
@@ -601,55 +472,7 @@ class SelectionOverlayView: NSView {
             width: abs(rect.width), height: abs(rect.height)
         ).integral
     }
-
-    private func hitTestHandle(point: CGPoint, rect: CGRect) -> ResizeHandle {
-        let handles = getHandleRects(for: rect)
-        for (handle, handleRect) in handles {
-            if handleRect.insetBy(dx: -6, dy: -6).contains(point) { return handle }
-        }
-        return .none
-    }
-
-    private func updateCursor(for handle: ResizeHandle, point: CGPoint, rect: CGRect) {
-        switch handle {
-        case .top, .bottom: NSCursor.resizeUpDown.set()
-        case .left, .right: NSCursor.resizeLeftRight.set()
-        case .none: rect.contains(point) ? NSCursor.openHand.set() : NSCursor.crosshair.set()
-        default: NSCursor.crosshair.set()
-        }
-    }
-
-    private func resizeRect(_ rect: CGRect, handle: ResizeHandle, to point: CGPoint) -> CGRect {
-        switch handle {
-        case .topLeft:
-            return CGRect(x: point.x, y: rect.minY, width: rect.maxX - point.x, height: point.y - rect.minY)
-        case .top:
-            return CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: point.y - rect.minY)
-        case .topRight:
-            return CGRect(x: rect.minX, y: rect.minY, width: point.x - rect.minX, height: point.y - rect.minY)
-        case .left:
-            return CGRect(x: point.x, y: rect.minY, width: rect.maxX - point.x, height: rect.height)
-        case .right:
-            return CGRect(x: rect.minX, y: rect.minY, width: point.x - rect.minX, height: rect.height)
-        case .bottomLeft:
-            return CGRect(x: point.x, y: point.y, width: rect.maxX - point.x, height: rect.maxY - point.y)
-        case .bottom:
-            return CGRect(x: rect.minX, y: point.y, width: rect.width, height: rect.maxY - point.y)
-        case .bottomRight:
-            return CGRect(x: rect.minX, y: point.y, width: point.x - rect.minX, height: rect.maxY - point.y)
-        case .none: return rect
-        }
-    }
-
-    private func nudgeSelection(dx: CGFloat, dy: CGFloat) {
-        guard hasSelection else { return }
-        selectionRect.origin.x += dx
-        selectionRect.origin.y += dy
-        needsDisplay = true
-    }
 }
-
-// MARK: - CaptureControlBarDelegate
 
 extension SelectionOverlayView: CaptureControlBarDelegate {
     func controlBar(_ bar: CaptureControlBar, didSelect mode: CaptureMode) {
@@ -659,11 +482,13 @@ extension SelectionOverlayView: CaptureControlBarDelegate {
     func controlBarDidTapCapture(_ bar: CaptureControlBar) {
         switch captureMode {
         case .fullScreen:
-            selectionRect = bounds
-            hasSelection = true
+            if let session, let screen = associatedScreen {
+                session.setMode(.fullScreen, on: screen)
+                renderModel = session.renderModel(for: screen)
+            }
             confirmSelection()
         case .area, .window:
-            if hasSelection { confirmSelection() }
+            if renderModel.hasSelection { confirmSelection() }
         }
     }
 
@@ -672,6 +497,5 @@ extension SelectionOverlayView: CaptureControlBarDelegate {
     }
 
     func controlBarDidChangeOptions(_ bar: CaptureControlBar) {
-        // 偏好设置已同步，无需其它动作
     }
 }
