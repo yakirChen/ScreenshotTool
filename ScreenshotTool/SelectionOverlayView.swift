@@ -465,6 +465,9 @@ class SelectionOverlayView: NSView {
         editor.currentColor = PreferencesManager.shared.defaultAnnotationColor
         editor.currentLineWidth = PreferencesManager.shared.defaultLineWidth
         editor.currentTool = .arrow
+        editor.onEscape = { [weak self] in
+            self?.cancelAnnotation()
+        }
         addSubview(editor)
         annotationEditorView = editor
 

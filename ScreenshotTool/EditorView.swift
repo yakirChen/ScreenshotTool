@@ -34,6 +34,7 @@ class EditorView: NSView {
     private var ocrSelectionRect: CGRect = .zero
     private var isOCRSelecting = false
     private var ocrStartPoint: CGPoint = .zero
+    var onEscape: (() -> Void)?
 
     // MARK: - 设置
 
@@ -447,6 +448,10 @@ class EditorView: NSView {
         case 51, 117:  // Delete
             deleteSelectedAnnotation()
         case 53:  // ESC
+            if let onEscape {
+                onEscape()
+                return
+            }
             if let a = selectedAnnotation {
                 a.isSelected = false
                 selectedAnnotation = nil
