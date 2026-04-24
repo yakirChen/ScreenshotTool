@@ -7,6 +7,14 @@
 
 import Cocoa
 
+private final class TightTextFieldCell: NSTextFieldCell {
+    private let inset = CGSize(width: 2, height: 1)
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        super.drawingRect(forBounds: rect).insetBy(dx: inset.width, dy: inset.height)
+    }
+}
+
 class EditorView: NSView {
 
     var image: NSImage? {
@@ -386,7 +394,8 @@ class EditorView: NSView {
         annotation.fontSize = max(12, currentLineWidth * 6)
         editingAnnotation = annotation
 
-        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: 24))
+        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: 22))
+        tf.cell = TightTextFieldCell(textCell: "")
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .medium)
         tf.textColor = currentColor
         tf.backgroundColor = NSColor.white.withAlphaComponent(0.9)
