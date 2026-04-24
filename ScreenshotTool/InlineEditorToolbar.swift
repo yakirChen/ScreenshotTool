@@ -36,7 +36,7 @@ final class InlineEditorToolbar: NSView {
     ]
 
     static let barHeight: CGFloat = 36
-    static let barWidth: CGFloat = 660
+    static let barWidth: CGFloat = 620
 
     override init(frame frameRect: NSRect) {
         let size = NSSize(width: Self.barWidth, height: Self.barHeight)
@@ -66,7 +66,7 @@ final class InlineEditorToolbar: NSView {
 
         let stack = NSStackView()
         stack.orientation = .horizontal
-        stack.spacing = 2
+        stack.spacing = 1
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
@@ -114,8 +114,6 @@ final class InlineEditorToolbar: NSView {
             createIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
         stack.addArrangedSubview(
             createIconButton(icon: "arrow.uturn.forward", action: #selector(redoClicked), tooltip: "重做 ⌘⇧Z"))
-
-        stack.addArrangedSubview(createDivider())
 
         stack.addArrangedSubview(createDivider())
         stack.addArrangedSubview(createIconButton(icon: "doc.on.doc", action: #selector(copyClicked), tooltip: "复制"))

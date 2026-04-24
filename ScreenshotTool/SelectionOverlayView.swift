@@ -350,8 +350,14 @@ class SelectionOverlayView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
+        let wasSelecting = renderModel.isSelecting
         renderModel = session.handleMouseUp(on: screen)
         needsDisplay = true
+
+        // 框选完成后自动进入下一步，省去必须按回车确认的步骤
+        if wasSelecting && renderModel.hasSelection && renderModel.captureMode != .fullScreen {
+            confirmSelection()
+        }
     }
 
     // MARK: - 键盘
