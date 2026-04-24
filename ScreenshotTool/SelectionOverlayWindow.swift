@@ -9,8 +9,9 @@ import Cocoa
 
 class SelectionOverlayWindow: NSWindow {
 
-    var onComplete: ((CGRect, NSScreen, NSImage?) -> Void)?
+    var onComplete: ((CGRect, NSScreen, NSImage?, CaptureExportAction) -> Void)?
     var onCancel: (() -> Void)?
+    var onStateChange: ((SelectionCaptureManager.State) -> Void)?
 
     let associatedScreen: NSScreen
 
@@ -49,13 +50,16 @@ class SelectionOverlayWindow: NSWindow {
         selectionView.autoresizingMask = [.width, .height]
         self.contentView = selectionView
 
-        selectionView.onComplete = { [weak self] rect, image in
+        selectionView.onComplete = { [weak self] rect, image, action in
             guard let self = self else { return }
-            self.onComplete?(rect, self.associatedScreen, image)
+            self.onComplete?(rect, self.associatedScreen, image, action)
         }
 
         selectionView.onCancel = { [weak self] in
             self?.onCancel?()
+        }
+        selectionView.onStateChange = { [weak self] state in
+            self?.onStateChange?(state)
         }
     }
 

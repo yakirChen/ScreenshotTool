@@ -6,12 +6,14 @@
 //
 
 import Cocoa
+import UniformTypeIdentifiers
 
 class SelectionOverlayView: NSView {
 
     // MARK: - 回调
-    var onComplete: ((CGRect, NSImage?) -> Void)?
+    var onComplete: ((CGRect, NSImage?, CaptureExportAction) -> Void)?
     var onCancel: (() -> Void)?
+    var onStateChange: ((SelectionCaptureManager.State) -> Void)?
 
     // MARK: - 屏幕/模式
     var associatedScreen: NSScreen?
@@ -39,6 +41,11 @@ class SelectionOverlayView: NSView {
 
     // MARK: - 控制栏
     private var controlBar: CaptureControlBar?
+    private var annotationEditorView: EditorView?
+    private var inlineToolbar: InlineEditorToolbar?
+    private var exportActionBar: NSStackView?
+    private var annotationRect: CGRect = .zero
+    private var isAnnotating = false
 
     var overlayMessage: String {
         if !showControlBar {
@@ -297,6 +304,7 @@ class SelectionOverlayView: NSView {
     // MARK: - 鼠标事件
 
     override func mouseMoved(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
 
         let localPoint = convert(event.locationInWindow, from: nil)
@@ -312,6 +320,10 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard !isAnnotating else {
+            super.mouseDown(with: event)
+            return
+        }
         guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
 
@@ -328,6 +340,7 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
         let globalPoint = GeometryMapper.localToGlobal(point, in: screen)
@@ -336,6 +349,7 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
         renderModel = session.handleMouseUp(on: screen)
         needsDisplay = true
@@ -345,6 +359,10 @@ class SelectionOverlayView: NSView {
 
     override func keyDown(with event: NSEvent) {
         guard let session, let screen = associatedScreen else { return }
+        if isAnnotating {
+            handleAnnotationKeyDown(event)
+            return
+        }
 
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
@@ -402,6 +420,7 @@ class SelectionOverlayView: NSView {
         guard let session, let screen = associatedScreen else { return }
         let rect = session.normalizedSelectionRect(in: screen)
         guard rect.width > 1, rect.height > 1 else { return }
+        onStateChange?(.captured)
 
         if PreferencesManager.shared.rememberLastSelection && captureMode == .area {
             PreferencesManager.shared.lastSelectionRect = rect
@@ -422,12 +441,70 @@ class SelectionOverlayView: NSView {
             do {
                 guard let screen = associatedScreen else { return }
                 let image = try await ScreenCaptureService.shared.captureArea(rect: rect, screen: screen)
-                onComplete?(rect, image)
+                session?.freezeSelection(image: image, localRect: rect, in: screen)
+                enterAnnotationMode(image: image, rect: rect)
             } catch {
                 print("❌ 截图失败: \(error)")
                 onCancel?()
             }
         }
+    }
+
+    private func enterAnnotationMode(image: NSImage, rect: CGRect) {
+        isAnnotating = true
+        annotationRect = rect
+        onStateChange?(.annotating)
+
+        controlBar?.isHidden = true
+
+        let editor = EditorView(frame: rect)
+        editor.image = image
+        editor.currentColor = PreferencesManager.shared.defaultAnnotationColor
+        editor.currentLineWidth = PreferencesManager.shared.defaultLineWidth
+        editor.currentTool = .arrow
+        addSubview(editor)
+        annotationEditorView = editor
+
+        let toolbarY = min(bounds.height - InlineEditorToolbar.barHeight - 12, rect.maxY + 12)
+        let toolbarX = max(12, min((bounds.width - InlineEditorToolbar.barWidth) / 2, bounds.width - InlineEditorToolbar.barWidth - 12))
+        let toolbar = InlineEditorToolbar(frame: NSRect(x: toolbarX, y: toolbarY, width: InlineEditorToolbar.barWidth, height: InlineEditorToolbar.barHeight))
+        toolbar.delegate = self
+        toolbar.currentTool = .arrow
+        toolbar.currentColor = editor.currentColor
+        addSubview(toolbar)
+        inlineToolbar = toolbar
+
+        addExportActionBar()
+        window?.makeFirstResponder(editor)
+    }
+
+    private func addExportActionBar() {
+        let stack = NSStackView()
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        stack.wantsLayer = true
+        stack.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.9).cgColor
+        stack.layer?.cornerRadius = 8
+
+        stack.addArrangedSubview(exportButton(title: "复制", action: #selector(exportCopy)))
+        stack.addArrangedSubview(exportButton(title: "保存", action: #selector(exportSave)))
+        stack.addArrangedSubview(exportButton(title: "Pin", action: #selector(exportPin)))
+        stack.addArrangedSubview(exportButton(title: "取消", action: #selector(cancelAnnotation)))
+
+        stack.sizeToFit()
+        let x = max(12, min(annotationRect.midX - 130, bounds.width - 260 - 12))
+        let y = max(12, annotationRect.minY - 54)
+        stack.frame = CGRect(x: x, y: y, width: 260, height: 36)
+        addSubview(stack)
+        exportActionBar = stack
+    }
+
+    private func exportButton(title: String, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        return button
     }
 
     private func runCountdown(seconds: Int, completion: @escaping () -> Void) {
@@ -465,6 +542,78 @@ class SelectionOverlayView: NSView {
         }
     }
 
+    private func handleAnnotationKeyDown(_ event: NSEvent) {
+        let cmd = event.modifierFlags.contains(.command)
+        switch event.keyCode {
+        case 53:
+            cancelAnnotation()
+        case 36, 76:
+            exportCopy()
+        case 1 where cmd:
+            exportSave()
+        case 8 where cmd:
+            exportCopy()
+        default:
+            annotationEditorView?.keyDown(with: event)
+        }
+    }
+
+    @objc private func exportCopy() {
+        guard let image = annotationEditorView?.exportImage() else { return }
+        onComplete?(annotationRect, image, .copy)
+    }
+
+    @objc private func exportPin() {
+        guard let image = annotationEditorView?.exportImage() else { return }
+        onComplete?(annotationRect, image, .pin)
+    }
+
+    @objc private func exportSave() {
+        guard let image = annotationEditorView?.exportImage(),
+              let window
+        else { return }
+
+        let format = PreferencesManager.shared.saveFormat
+        let ext = format == "jpeg" ? "jpg" : format
+        let savePanel = NSSavePanel()
+        switch format {
+        case "jpeg": savePanel.allowedContentTypes = [.jpeg]
+        case "tiff": savePanel.allowedContentTypes = [.tiff]
+        default: savePanel.allowedContentTypes = [.png]
+        }
+        savePanel.nameFieldStringValue = "Screenshot_\(dateString()).\(ext)"
+
+        savePanel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let url = savePanel.url else { return }
+            self?.saveImageToFile(image: image, url: url, format: format)
+            self?.onComplete?(self?.annotationRect ?? .zero, image, .save)
+        }
+    }
+
+    private func saveImageToFile(image: NSImage, url: URL, format: String) {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmapRep = NSBitmapImageRep(data: tiffData)
+        else { return }
+        let fileType: NSBitmapImageRep.FileType
+        switch format {
+        case "jpeg": fileType = .jpeg
+        case "tiff": fileType = .tiff
+        default: fileType = .png
+        }
+        guard let data = bitmapRep.representation(using: fileType, properties: [:]) else { return }
+        try? data.write(to: url)
+    }
+
+    private func dateString() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return f.string(from: Date())
+    }
+
+    @objc private func cancelAnnotation() {
+        onCancel?()
+    }
+
     private func normalizedRect(_ rect: CGRect) -> CGRect {
         CGRect(
             x: min(rect.origin.x, rect.origin.x + rect.width),
@@ -497,5 +646,31 @@ extension SelectionOverlayView: CaptureControlBarDelegate {
     }
 
     func controlBarDidChangeOptions(_ bar: CaptureControlBar) {
+    }
+}
+
+extension SelectionOverlayView: InlineEditorToolbarDelegate {
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didSelectTool tool: AnnotationTool) {
+        annotationEditorView?.currentTool = tool
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeColor color: NSColor) {
+        annotationEditorView?.currentColor = color
+    }
+
+    func inlineToolbarDidUndo(_ toolbar: InlineEditorToolbar) {
+        annotationEditorView?.undo()
+    }
+
+    func inlineToolbarDidRedo(_ toolbar: InlineEditorToolbar) {
+        annotationEditorView?.redo()
+    }
+
+    func inlineToolbarDidConfirm(_ toolbar: InlineEditorToolbar) {
+        exportCopy()
+    }
+
+    func inlineToolbarDidCancel(_ toolbar: InlineEditorToolbar) {
+        cancelAnnotation()
     }
 }
