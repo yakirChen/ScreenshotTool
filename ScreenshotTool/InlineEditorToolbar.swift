@@ -14,6 +14,8 @@ protocol InlineEditorToolbarDelegate: AnyObject {
     func inlineToolbarDidCancel(_ toolbar: InlineEditorToolbar)
     func inlineToolbarDidCopy(_ toolbar: InlineEditorToolbar)
     func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar)
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeLineWidth width: CGFloat)
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeFontSize size: CGFloat)
 }
 
 final class InlineEditorToolbar: NSView {
@@ -26,10 +28,18 @@ final class InlineEditorToolbar: NSView {
     var currentColor: NSColor = .systemRed {
         didSet { colorWell?.color = currentColor }
     }
+    var currentLineWidth: CGFloat = 2 {
+        didSet { lineWidthSlider?.doubleValue = Double(currentLineWidth) }
+    }
+    var currentFontSize: CGFloat = 16 {
+        didSet { fontSizeSlider?.doubleValue = Double(currentFontSize) }
+    }
 
     private var toolButtons: [AnnotationTool: NSButton] = [:]
     private var colorWell: NSColorWell?
     private weak var contentStack: NSStackView?
+    private var lineWidthSlider: NSSlider?
+    private var fontSizeSlider: NSSlider?
 
     private let tools: [AnnotationTool] = [
         .arrow, .rectangle, .ellipse, .line,
@@ -112,6 +122,30 @@ final class InlineEditorToolbar: NSView {
 
         stack.addArrangedSubview(createDivider())
 
+        let widthSlider = NSSlider(value: Double(currentLineWidth), minValue: 1, maxValue: 12, target: self, action: #selector(lineWidthChanged(_:)))
+        widthSlider.controlSize = .small
+        widthSlider.frame.size.width = 64
+        widthSlider.translatesAutoresizingMaskIntoConstraints = false
+        widthSlider.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        widthSlider.toolTip = "线宽"
+        lineWidthSlider = widthSlider
+        stack.addArrangedSubview(makeTagLabel("粗"))
+        stack.addArrangedSubview(widthSlider)
+
+        stack.addArrangedSubview(createDivider())
+
+        let textSlider = NSSlider(value: Double(currentFontSize), minValue: 12, maxValue: 48, target: self, action: #selector(fontSizeChanged(_:)))
+        textSlider.controlSize = .small
+        textSlider.frame.size.width = 64
+        textSlider.translatesAutoresizingMaskIntoConstraints = false
+        textSlider.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        textSlider.toolTip = "字体大小"
+        fontSizeSlider = textSlider
+        stack.addArrangedSubview(makeTagLabel("字"))
+        stack.addArrangedSubview(textSlider)
+
+        stack.addArrangedSubview(createDivider())
+
         // Undo / Redo
         stack.addArrangedSubview(
             createIconButton(icon: "arrow.uturn.backward", action: #selector(undoClicked), tooltip: "撤销 ⌘Z"))
@@ -181,6 +215,13 @@ final class InlineEditorToolbar: NSView {
         return v
     }
 
+    private func makeTagLabel(_ title: String) -> NSTextField {
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 10, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        return label
+    }
+
     // MARK: - Update
 
     private func updateToolButtons() {
@@ -214,4 +255,12 @@ final class InlineEditorToolbar: NSView {
     @objc private func cancelClicked() { delegate?.inlineToolbarDidCancel(self) }
     @objc private func copyClicked() { delegate?.inlineToolbarDidCopy(self) }
     @objc private func pinClicked() { delegate?.inlineToolbarDidPin(self) }
+    @objc private func lineWidthChanged(_ sender: NSSlider) {
+        currentLineWidth = CGFloat(sender.doubleValue)
+        delegate?.inlineToolbar(self, didChangeLineWidth: currentLineWidth)
+    }
+    @objc private func fontSizeChanged(_ sender: NSSlider) {
+        currentFontSize = CGFloat(sender.doubleValue)
+        delegate?.inlineToolbar(self, didChangeFontSize: currentFontSize)
+    }
 }

@@ -27,6 +27,7 @@ class EditorView: NSView {
     var currentTool: AnnotationTool = .select
     var currentColor: NSColor = .systemRed
     var currentLineWidth: CGFloat = 2
+    var currentFontSize: CGFloat = 16
 
     private var undoStack: [[Annotation]] = []
     private var redoStack: [[Annotation]] = []
@@ -391,7 +392,7 @@ class EditorView: NSView {
 
         let annotation = Annotation(
             tool: .text, startPoint: point, color: currentColor, lineWidth: currentLineWidth)
-        annotation.fontSize = max(12, currentLineWidth * 6)
+        annotation.fontSize = currentFontSize
         editingAnnotation = annotation
 
         let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: 22))

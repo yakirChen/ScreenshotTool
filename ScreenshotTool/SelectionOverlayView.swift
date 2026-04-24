@@ -493,6 +493,8 @@ class SelectionOverlayView: NSView {
         toolbar.delegate = self
         toolbar.currentTool = .arrow
         toolbar.currentColor = editor.currentColor
+        toolbar.currentLineWidth = editor.currentLineWidth
+        toolbar.currentFontSize = editor.currentFontSize
         addSubview(toolbar)
         inlineToolbar = toolbar
 
@@ -609,6 +611,14 @@ extension SelectionOverlayView: InlineEditorToolbarDelegate {
 
     func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeColor color: NSColor) {
         annotationEditorView?.currentColor = color
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeLineWidth width: CGFloat) {
+        annotationEditorView?.currentLineWidth = width
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeFontSize size: CGFloat) {
+        annotationEditorView?.currentFontSize = size
     }
 
     func inlineToolbarDidUndo(_ toolbar: InlineEditorToolbar) {
