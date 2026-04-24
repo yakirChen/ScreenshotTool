@@ -17,7 +17,8 @@ class EditorWindowController: NSWindowController {
     private var scrollView: NSScrollView!
     private var eventMonitor: Any?
 
-    static func show(with image: NSImage) {
+    static func show(with image: NSImage, asFallback: Bool = true) {
+        guard asFallback else { return }
         current?.close()
 
         let controller = EditorWindowController(image: image)

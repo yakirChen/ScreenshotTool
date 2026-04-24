@@ -24,6 +24,8 @@ final class CaptureSession {
     }
 
     private(set) var globalSelectionRect: CGRect = .zero
+    private(set) var frozenSelectionImage: NSImage?
+    private(set) var frozenSelectionRect: CGRect = .zero
     private(set) var activeScreen: NSScreen?
     private(set) var hoverWindow: WindowDetector.DetectedWindow?
     private(set) var captureMode: CaptureMode = .area
@@ -213,6 +215,13 @@ final class CaptureSession {
     func clearSelection() {
         hasSelection = false
         globalSelectionRect = .zero
+        frozenSelectionImage = nil
+        frozenSelectionRect = .zero
+    }
+
+    func freezeSelection(image: NSImage, localRect: CGRect, in screen: NSScreen) {
+        frozenSelectionImage = image
+        frozenSelectionRect = GeometryMapper.localToGlobal(localRect, in: screen)
     }
 
     func nudgeSelection(dx: CGFloat, dy: CGFloat) {

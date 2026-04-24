@@ -7,6 +7,16 @@
 
 import Cocoa
 
+private final class TightTextFieldCell: NSTextFieldCell {
+    private let inset = CGSize(width: 2, height: 0)
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        super.drawingRect(forBounds: rect)
+            .insetBy(dx: inset.width, dy: inset.height)
+            .offsetBy(dx: 0, dy: -1)
+    }
+}
+
 class EditorView: NSView {
 
     var image: NSImage? {
@@ -17,8 +27,31 @@ class EditorView: NSView {
     var currentAnnotation: Annotation?
 
     var currentTool: AnnotationTool = .select
-    var currentColor: NSColor = .systemRed
-    var currentLineWidth: CGFloat = 2
+    var currentColor: NSColor = .systemRed {
+        didSet {
+            if let selectedAnnotation {
+                selectedAnnotation.color = currentColor
+                needsDisplay = true
+            }
+        }
+    }
+    var currentLineWidth: CGFloat = 2 {
+        didSet {
+            if let selectedAnnotation {
+                selectedAnnotation.lineWidth = currentLineWidth
+                needsDisplay = true
+            }
+        }
+    }
+    var currentFontSize: CGFloat = 16 {
+        didSet {
+            if let selectedAnnotation, selectedAnnotation.tool == .text {
+                selectedAnnotation.fontSize = currentFontSize
+                needsDisplay = true
+            }
+            updateActiveTextFieldMetrics()
+        }
+    }
 
     private var undoStack: [[Annotation]] = []
     private var redoStack: [[Annotation]] = []
@@ -34,6 +67,8 @@ class EditorView: NSView {
     private var ocrSelectionRect: CGRect = .zero
     private var isOCRSelecting = false
     private var ocrStartPoint: CGPoint = .zero
+    var onEscape: (() -> Void)?
+    var onSelectionStyleChange: ((Annotation?) -> Void)?
 
     // MARK: - 设置
 
@@ -346,6 +381,15 @@ class EditorView: NSView {
                 break
             }
         }
+
+        if let selectedAnnotation {
+            currentColor = selectedAnnotation.color
+            currentLineWidth = selectedAnnotation.lineWidth
+            if selectedAnnotation.tool == .text {
+                currentFontSize = selectedAnnotation.fontSize
+            }
+        }
+        onSelectionStyleChange?(selectedAnnotation)
     }
 
     private func handleSelectMouseDragged(point: CGPoint) {
@@ -382,17 +426,25 @@ class EditorView: NSView {
 
         let annotation = Annotation(
             tool: .text, startPoint: point, color: currentColor, lineWidth: currentLineWidth)
-        annotation.fontSize = max(12, currentLineWidth * 6)
+        annotation.fontSize = currentFontSize
         editingAnnotation = annotation
 
-        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: 24))
+        let initialHeight = max(22, currentFontSize + 6)
+        let tf = NSTextField(frame: CGRect(x: point.x, y: point.y, width: 200, height: initialHeight))
+        tf.cell = TightTextFieldCell(textCell: "")
         tf.font = NSFont.systemFont(ofSize: annotation.fontSize, weight: .medium)
         tf.textColor = currentColor
-        tf.backgroundColor = NSColor.white.withAlphaComponent(0.9)
-        tf.isBezeled = true
-        tf.bezelStyle = .roundedBezel
+        tf.isBezeled = false
+        tf.isBordered = false
+        tf.drawsBackground = false
         tf.isEditable = true
         tf.placeholderString = "输入文字..."
+        tf.focusRingType = .none
+        tf.wantsLayer = true
+        tf.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.9).cgColor
+        tf.layer?.cornerRadius = 6
+        tf.layer?.borderWidth = 1
+        tf.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
         tf.delegate = self
         tf.target = self
         tf.action = #selector(textFieldAction(_:))
@@ -412,6 +464,15 @@ class EditorView: NSView {
         let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
             annotation.text = text
+            if let cell = tf.cell {
+                let textRect = cell.drawingRect(forBounds: tf.bounds)
+                annotation.startPoint = CGPoint(
+                    x: tf.frame.minX + textRect.minX,
+                    y: tf.frame.minY + textRect.minY
+                )
+            } else {
+                annotation.startPoint = tf.frame.origin
+            }
             annotations.append(annotation)
         }
 
@@ -419,6 +480,19 @@ class EditorView: NSView {
         textField = nil
         editingAnnotation = nil
         needsDisplay = true
+    }
+
+    private func updateActiveTextFieldMetrics() {
+        guard let tf = textField else { return }
+        tf.font = NSFont.systemFont(ofSize: currentFontSize, weight: .medium)
+        let measureText = tf.stringValue.isEmpty ? (tf.placeholderString ?? "输入文字...") : tf.stringValue
+        let attrs: [NSAttributedString.Key: Any] = [.font: tf.font as Any]
+        let textSize = (measureText as NSString).size(withAttributes: attrs)
+        let targetWidth = max(120, min(360, textSize.width + 24))
+        let font = tf.font ?? NSFont.systemFont(ofSize: currentFontSize, weight: .medium)
+        let lineHeight = font.ascender - font.descender + font.leading
+        let targetHeight = max(22, lineHeight + 6)
+        tf.frame.size = CGSize(width: targetWidth, height: targetHeight)
     }
 
     // MARK: - 编号工具
@@ -447,9 +521,14 @@ class EditorView: NSView {
         case 51, 117:  // Delete
             deleteSelectedAnnotation()
         case 53:  // ESC
+            if let onEscape {
+                onEscape()
+                return
+            }
             if let a = selectedAnnotation {
                 a.isSelected = false
                 selectedAnnotation = nil
+                onSelectionStyleChange?(nil)
                 needsDisplay = true
             } else {
                 finishTextEditing()
@@ -488,6 +567,7 @@ class EditorView: NSView {
         saveUndoState()
         annotations.removeAll { $0.id == annotation.id }
         selectedAnnotation = nil
+        onSelectionStyleChange?(nil)
         needsDisplay = true
     }
 
@@ -532,6 +612,10 @@ class EditorView: NSView {
 // MARK: - NSTextFieldDelegate
 
 extension EditorView: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+        updateActiveTextFieldMetrics()
+    }
+
     func controlTextDidEndEditing(_ obj: Notification) {
         finishTextEditing()
     }

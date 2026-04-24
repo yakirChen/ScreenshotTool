@@ -7,12 +7,28 @@
 
 import Cocoa
 
+enum CaptureExportAction {
+    case copy
+    case save
+    case pin
+}
+
 class SelectionCaptureManager {
 
     static let shared = SelectionCaptureManager()
 
     private var overlayWindows: [SelectionOverlayWindow] = []
     private var captureSession: CaptureSession?
+    private(set) var state: State = .idle
+
+    enum State {
+        case idle
+        case selecting
+        case captured
+        case annotating
+        case exporting
+        case cancelled
+    }
 
     /// - Parameter lightweight: true = ⌘⇧4 风格（无底部控制栏，Space 切窗口），false = ⌘⇧5 风格（带控制面板）
     func startCapture(lightweight: Bool = false) {
@@ -54,6 +70,7 @@ class SelectionCaptureManager {
             let session = CaptureSession()
             session.showControlBar = !lightweight
             captureSession = session
+            state = .selecting
 
             // 为每个屏幕创建覆盖窗口
             for screen in NSScreen.screens {
@@ -71,11 +88,19 @@ class SelectionCaptureManager {
                     view.frozenBackground = frozenImages[displayID]
                 }
 
-                window.onComplete = { [weak self] rect, captureScreen, editedImage in
-                    self?.finishCapture(selectionRect: rect, screen: captureScreen, editedImage: editedImage)
+                window.onComplete = { [weak self] rect, captureScreen, editedImage, action in
+                    self?.finishCapture(
+                        selectionRect: rect,
+                        screen: captureScreen,
+                        editedImage: editedImage,
+                        action: action
+                    )
                 }
                 window.onCancel = { [weak self] in
                     self?.cancelCapture()
+                }
+                window.onStateChange = { [weak self] newState in
+                    self?.state = newState
                 }
 
                 overlayWindows.append(window)
@@ -102,9 +127,12 @@ class SelectionCaptureManager {
         }
     }
 
-    private func finishCapture(selectionRect: CGRect, screen: NSScreen, editedImage: NSImage?) {
-        closeOverlays()
-
+    private func finishCapture(
+        selectionRect: CGRect,
+        screen: NSScreen,
+        editedImage: NSImage?,
+        action: CaptureExportAction
+    ) {
         guard selectionRect.width > 1 && selectionRect.height > 1 else { return }
 
         print("📐 finishCapture:")
@@ -116,22 +144,21 @@ class SelectionCaptureManager {
         guard let image = editedImage else { return }
 
         print("✅ 截图成功: \(image.size)")
+        state = .exporting
 
-        // 闪屏动画
-        CaptureAnimation.playFlash(in: screen.frame)
-
-        // 自动动作：按偏好执行
-        let prefs = PreferencesManager.shared
-        if prefs.copyToClipboardOnCapture {
+        switch action {
+        case .copy:
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects([image])
+        case .save:
+            break
+        case .pin:
+            PinWindow.pin(image: image)
         }
-        if prefs.saveToHistory {
-            HistoryManager.shared.save(image: image)
-        }
-        if prefs.playSoundOnCapture {
-            NSSound(named: "Tink")?.play()
-        }
+
+        let prefs = PreferencesManager.shared
+        if prefs.saveToHistory { HistoryManager.shared.save(image: image) }
+        if prefs.playSoundOnCapture { NSSound(named: "Tink")?.play() }
 
         // 右下角浮动缩略图（用户点击/右键进入下一步）
         if prefs.showFloatingThumbnail {
@@ -143,10 +170,17 @@ class SelectionCaptureManager {
             )
             FloatingThumbnail.show(image: image, sourceRect: globalRect)
         }
+
+        // 闪屏动画
+        CaptureAnimation.playFlash(in: screen.frame)
+        closeOverlays()
+        state = .idle
     }
 
     func cancelCapture() {
+        state = .cancelled
         closeOverlays()
+        state = .idle
     }
 
     private func closeOverlays() {

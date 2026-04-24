@@ -10,13 +10,15 @@ import Cocoa
 class SelectionOverlayView: NSView {
 
     // MARK: - 回调
-    var onComplete: ((CGRect, NSImage?) -> Void)?
+    var onComplete: ((CGRect, NSImage?, CaptureExportAction) -> Void)?
     var onCancel: (() -> Void)?
+    var onStateChange: ((SelectionCaptureManager.State) -> Void)?
 
     // MARK: - 屏幕/模式
     var associatedScreen: NSScreen?
     var frozenBackground: NSImage?
     var showControlBar: Bool = true
+    var enableAnnotationAfterCapture: Bool = true
     var captureMode: CaptureMode = .area {
         didSet {
             guard let screen = associatedScreen else { return }
@@ -39,6 +41,10 @@ class SelectionOverlayView: NSView {
 
     // MARK: - 控制栏
     private var controlBar: CaptureControlBar?
+    private var annotationEditorView: EditorView?
+    private var inlineToolbar: InlineEditorToolbar?
+    private var annotationRect: CGRect = .zero
+    private var isAnnotating = false
 
     var overlayMessage: String {
         if !showControlBar {
@@ -297,6 +303,7 @@ class SelectionOverlayView: NSView {
     // MARK: - 鼠标事件
 
     override func mouseMoved(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
 
         let localPoint = convert(event.locationInWindow, from: nil)
@@ -312,6 +319,10 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard !isAnnotating else {
+            super.mouseDown(with: event)
+            return
+        }
         guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
 
@@ -328,6 +339,7 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
         let point = convert(event.locationInWindow, from: nil)
         let globalPoint = GeometryMapper.localToGlobal(point, in: screen)
@@ -336,26 +348,31 @@ class SelectionOverlayView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard !isAnnotating else { return }
         guard let session, let screen = associatedScreen else { return }
+        let wasSelecting = renderModel.isSelecting
         renderModel = session.handleMouseUp(on: screen)
         needsDisplay = true
+
+        // 框选完成后自动进入下一步，省去必须按回车确认的步骤
+        if wasSelecting && renderModel.hasSelection && renderModel.captureMode != .fullScreen {
+            confirmSelection()
+        }
     }
 
     // MARK: - 键盘
 
     override func keyDown(with event: NSEvent) {
         guard let session, let screen = associatedScreen else { return }
+        if isAnnotating {
+            handleAnnotationKeyDown(event)
+            return
+        }
 
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
         case 53:
-            if renderModel.hasSelection && renderModel.captureMode != .fullScreen {
-                session.clearSelection()
-                renderModel = session.renderModel(for: screen)
-                needsDisplay = true
-            } else {
-                onCancel?()
-            }
+            onCancel?()
         case 36, 76:
             if renderModel.captureMode == .fullScreen {
                 session.setMode(.fullScreen, on: screen)
@@ -402,6 +419,7 @@ class SelectionOverlayView: NSView {
         guard let session, let screen = associatedScreen else { return }
         let rect = session.normalizedSelectionRect(in: screen)
         guard rect.width > 1, rect.height > 1 else { return }
+        onStateChange?(.captured)
 
         if PreferencesManager.shared.rememberLastSelection && captureMode == .area {
             PreferencesManager.shared.lastSelectionRect = rect
@@ -422,12 +440,76 @@ class SelectionOverlayView: NSView {
             do {
                 guard let screen = associatedScreen else { return }
                 let image = try await ScreenCaptureService.shared.captureArea(rect: rect, screen: screen)
-                onComplete?(rect, image)
+                session?.freezeSelection(image: image, localRect: rect, in: screen)
+                if enableAnnotationAfterCapture {
+                    enterAnnotationMode(image: image, rect: rect)
+                } else {
+                    onComplete?(rect, image, .copy)
+                }
             } catch {
                 print("❌ 截图失败: \(error)")
                 onCancel?()
             }
         }
+    }
+
+    private func enterAnnotationMode(image: NSImage, rect: CGRect) {
+        isAnnotating = true
+        annotationRect = rect
+        onStateChange?(.annotating)
+
+        controlBar?.isHidden = true
+
+        let editor = EditorView(frame: rect)
+        editor.image = image
+        editor.currentColor = PreferencesManager.shared.defaultAnnotationColor
+        editor.currentLineWidth = PreferencesManager.shared.defaultLineWidth
+        editor.currentTool = .arrow
+        editor.onEscape = { [weak self] in
+            self?.cancelAnnotation()
+        }
+        editor.onSelectionStyleChange = { [weak self] annotation in
+            guard let self else { return }
+            guard let toolbar = self.inlineToolbar else { return }
+            if let annotation {
+                toolbar.currentColor = annotation.color
+                toolbar.currentLineWidth = annotation.lineWidth
+                if annotation.tool == .text {
+                    toolbar.currentFontSize = annotation.fontSize
+                }
+            }
+        }
+        addSubview(editor)
+        annotationEditorView = editor
+
+        let toolbar = InlineEditorToolbar(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: InlineEditorToolbar.barWidth,
+                height: InlineEditorToolbar.barHeight
+            )
+        )
+        let toolbarWidth = toolbar.frame.width
+        // 磁贴式工具栏跟随选框底部；若底部空间不足则放到选框上方
+        let preferredY = rect.minY - InlineEditorToolbar.barHeight - 12
+        let toolbarY: CGFloat
+        if preferredY >= 12 {
+            toolbarY = preferredY
+        } else {
+            toolbarY = min(bounds.height - InlineEditorToolbar.barHeight - 12, rect.maxY + 12)
+        }
+        let toolbarX = max(12, min((bounds.width - toolbarWidth) / 2, bounds.width - toolbarWidth - 12))
+        toolbar.frame.origin = CGPoint(x: toolbarX, y: toolbarY)
+        toolbar.delegate = self
+        toolbar.currentTool = .arrow
+        toolbar.currentColor = editor.currentColor
+        toolbar.currentLineWidth = editor.currentLineWidth
+        toolbar.currentFontSize = editor.currentFontSize
+        addSubview(toolbar)
+        inlineToolbar = toolbar
+
+        window?.makeFirstResponder(editor)
     }
 
     private func runCountdown(seconds: Int, completion: @escaping () -> Void) {
@@ -465,6 +547,33 @@ class SelectionOverlayView: NSView {
         }
     }
 
+    private func handleAnnotationKeyDown(_ event: NSEvent) {
+        switch event.keyCode {
+        case 53:
+            cancelAnnotation()
+        case 36, 76:
+            exportCopy()
+        case 8 where event.modifierFlags.contains(.command):
+            exportCopy()
+        default:
+            annotationEditorView?.keyDown(with: event)
+        }
+    }
+
+    @objc private func exportCopy() {
+        guard let image = annotationEditorView?.exportImage() else { return }
+        onComplete?(annotationRect, image, .copy)
+    }
+
+    @objc private func exportPin() {
+        guard let image = annotationEditorView?.exportImage() else { return }
+        onComplete?(annotationRect, image, .pin)
+    }
+
+    @objc private func cancelAnnotation() {
+        onCancel?()
+    }
+
     private func normalizedRect(_ rect: CGRect) -> CGRect {
         CGRect(
             x: min(rect.origin.x, rect.origin.x + rect.width),
@@ -497,5 +606,72 @@ extension SelectionOverlayView: CaptureControlBarDelegate {
     }
 
     func controlBarDidChangeOptions(_ bar: CaptureControlBar) {
+    }
+}
+
+extension SelectionOverlayView: InlineEditorToolbarDelegate {
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didSelectTool tool: AnnotationTool) {
+        annotationEditorView?.currentTool = tool
+        if let editor = annotationEditorView {
+            window?.makeFirstResponder(editor)
+        }
+        if tool == .ocr {
+            showAnnotationHint("拖拽框选要识别的文字区域")
+        }
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeColor color: NSColor) {
+        annotationEditorView?.currentColor = color
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeLineWidth width: CGFloat) {
+        annotationEditorView?.currentLineWidth = width
+    }
+
+    func inlineToolbar(_ toolbar: InlineEditorToolbar, didChangeFontSize size: CGFloat) {
+        annotationEditorView?.currentFontSize = size
+    }
+
+    func inlineToolbarDidUndo(_ toolbar: InlineEditorToolbar) {
+        annotationEditorView?.undo()
+    }
+
+    func inlineToolbarDidRedo(_ toolbar: InlineEditorToolbar) {
+        annotationEditorView?.redo()
+    }
+
+    func inlineToolbarDidConfirm(_ toolbar: InlineEditorToolbar) {
+        exportCopy()
+    }
+
+    func inlineToolbarDidCancel(_ toolbar: InlineEditorToolbar) {
+        cancelAnnotation()
+    }
+
+    func inlineToolbarDidCopy(_ toolbar: InlineEditorToolbar) {
+        exportCopy()
+    }
+
+    func inlineToolbarDidPin(_ toolbar: InlineEditorToolbar) {
+        exportPin()
+    }
+
+    private func showAnnotationHint(_ message: String) {
+        let label = NSTextField(labelWithString: message)
+        label.tag = 8899
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = .white
+        label.wantsLayer = true
+        label.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        label.layer?.cornerRadius = 6
+        label.layer?.masksToBounds = true
+        label.alignment = .center
+        label.frame = CGRect(x: max(12, (bounds.width - 220) / 2), y: 16, width: 220, height: 28)
+        subviews.filter { $0.tag == 8899 }.forEach { $0.removeFromSuperview() }
+        addSubview(label)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak label] in
+            label?.removeFromSuperview()
+        }
     }
 }
