@@ -25,9 +25,30 @@ class EditorView: NSView {
     var currentAnnotation: Annotation?
 
     var currentTool: AnnotationTool = .select
-    var currentColor: NSColor = .systemRed
-    var currentLineWidth: CGFloat = 2
-    var currentFontSize: CGFloat = 16
+    var currentColor: NSColor = .systemRed {
+        didSet {
+            if let selectedAnnotation {
+                selectedAnnotation.color = currentColor
+                needsDisplay = true
+            }
+        }
+    }
+    var currentLineWidth: CGFloat = 2 {
+        didSet {
+            if let selectedAnnotation {
+                selectedAnnotation.lineWidth = currentLineWidth
+                needsDisplay = true
+            }
+        }
+    }
+    var currentFontSize: CGFloat = 16 {
+        didSet {
+            if let selectedAnnotation, selectedAnnotation.tool == .text {
+                selectedAnnotation.fontSize = currentFontSize
+                needsDisplay = true
+            }
+        }
+    }
 
     private var undoStack: [[Annotation]] = []
     private var redoStack: [[Annotation]] = []
@@ -44,6 +65,7 @@ class EditorView: NSView {
     private var isOCRSelecting = false
     private var ocrStartPoint: CGPoint = .zero
     var onEscape: (() -> Void)?
+    var onSelectionStyleChange: ((Annotation?) -> Void)?
 
     // MARK: - 设置
 
@@ -356,6 +378,15 @@ class EditorView: NSView {
                 break
             }
         }
+
+        if let selectedAnnotation {
+            currentColor = selectedAnnotation.color
+            currentLineWidth = selectedAnnotation.lineWidth
+            if selectedAnnotation.tool == .text {
+                currentFontSize = selectedAnnotation.fontSize
+            }
+        }
+        onSelectionStyleChange?(selectedAnnotation)
     }
 
     private func handleSelectMouseDragged(point: CGPoint) {
@@ -474,6 +505,7 @@ class EditorView: NSView {
             if let a = selectedAnnotation {
                 a.isSelected = false
                 selectedAnnotation = nil
+                onSelectionStyleChange?(nil)
                 needsDisplay = true
             } else {
                 finishTextEditing()
@@ -512,6 +544,7 @@ class EditorView: NSView {
         saveUndoState()
         annotations.removeAll { $0.id == annotation.id }
         selectedAnnotation = nil
+        onSelectionStyleChange?(nil)
         needsDisplay = true
     }
 

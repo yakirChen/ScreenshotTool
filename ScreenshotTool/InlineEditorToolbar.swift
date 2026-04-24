@@ -42,7 +42,7 @@ final class InlineEditorToolbar: NSView {
     private var fontSizePopup: NSPopUpButton?
 
     private let tools: [AnnotationTool] = [
-        .arrow, .rectangle, .ellipse, .line,
+        .select, .arrow, .rectangle, .ellipse, .line,
         .text, .pen, .highlight, .blur, .number, .ocr
     ]
 

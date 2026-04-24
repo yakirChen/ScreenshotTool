@@ -468,6 +468,17 @@ class SelectionOverlayView: NSView {
         editor.onEscape = { [weak self] in
             self?.cancelAnnotation()
         }
+        editor.onSelectionStyleChange = { [weak self] annotation in
+            guard let self else { return }
+            guard let toolbar = self.inlineToolbar else { return }
+            if let annotation {
+                toolbar.currentColor = annotation.color
+                toolbar.currentLineWidth = annotation.lineWidth
+                if annotation.tool == .text {
+                    toolbar.currentFontSize = annotation.fontSize
+                }
+            }
+        }
         addSubview(editor)
         annotationEditorView = editor
 
