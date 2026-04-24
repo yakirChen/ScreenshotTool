@@ -88,7 +88,7 @@ final class InlineEditorToolbar: NSObject {
         guard let hostingView else { return }
 
         let fitting = hostingView.fittingSize
-        let toolbarSize = NSSize(width: max(440, fitting.width), height: max(56, fitting.height))
+        let toolbarSize = NSSize(width: max(440, fitting.width), height: max(48, fitting.height))
         resizePanel(to: toolbarSize)
 
         let targetLocalOrigin = Self.computeMagneticOrigin(
@@ -298,7 +298,7 @@ private struct InlineToolbarRootView: View {
     private let fontSizes: [CGFloat] = [12, 14, 16, 18, 20, 24, 28, 32]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 smallButton(icon: "xmark") { handler?.perform(.cancel) }
                 smallButton(icon: "arrow.uturn.backward") { handler?.perform(.undo) }
@@ -374,7 +374,7 @@ private struct InlineToolbarRootView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         .background {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -411,7 +411,7 @@ private final class InlineToolbarPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 56),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 48),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
