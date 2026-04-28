@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<dict>
+		<key>CFBundleIdentifier</key>
+		<string>io.github.yakirchen.Shot</string>
+		<key>CFBundleName</key>
+		<string>Shot</string>
+		<key>CFBundleShortVersionString</key>
+		<string>1.0</string>
+		<key>LSUIElement</key>
+		<true/>
+		<key>NSScreenCaptureUsageDescription</key>
+		<string>Shot 需要屏幕录制权限来截取屏幕内容。</string>
+		<key>LSMinimumSystemVersion</key>
+		<string>13.0</string>
+		<key>NSPrincipalClass</key>
+		<string>NSApplication</string>
+		<key>NSApplicationSupportsSecureRestorableState</key>
+		<true/>
+		<key>com.apple.security.files.user-selected.read-write</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

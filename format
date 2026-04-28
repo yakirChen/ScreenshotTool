@@ -1,0 +1,11 @@
+#!/usr/bin/env zsh
+
+# https://github.com/apple/swift-format
+# brew install swift-format
+
+# https://github.com/realm/SwiftLint
+# brew install swiftlint
+
+swift format --in-place --recursive --color-diagnostics ./
+
+# swiftlint --fix --format .
