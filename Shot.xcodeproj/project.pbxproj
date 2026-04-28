@@ -17,22 +17,9 @@
 		25D4C18B2F72B11D0056ADB4 /* Shot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Shot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		25D4C1AE2F72B3480056ADB4 /* Exceptions for "Shot" folder in "Shot" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 25D4C18A2F72B11D0056ADB4 /* Shot */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		25D4C18D2F72B11D0056ADB4 /* Shot */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				25D4C1AE2F72B3480056ADB4 /* Exceptions for "Shot" folder in "Shot" target */,
-			);
 			path = Shot;
 			sourceTree = "<group>";
 		};
@@ -283,7 +270,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Shot/Info.plist;
+				INFOPLIST_FILE = Shot/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
@@ -319,7 +306,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Shot/Info.plist;
+				INFOPLIST_FILE = Shot/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
